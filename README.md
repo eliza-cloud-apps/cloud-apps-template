@@ -16,10 +16,10 @@ This is the official template for building apps on [Eliza Cloud](https://elizacl
 
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Start development server
-pnpm dev
+bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to see your app.

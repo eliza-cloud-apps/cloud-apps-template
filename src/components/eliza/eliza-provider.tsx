@@ -6,7 +6,6 @@
  * Wraps your app with:
  * - Analytics tracking (automatic page views)
  * - Credits context (balance management)
- * - Future: Auth context when OAuth is enabled
  * 
  * @example
  * // In layout.tsx:

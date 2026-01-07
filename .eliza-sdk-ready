@@ -1,0 +1,4 @@
+# ElizaCloud SDK Marker File
+# This file indicates that the SDK is pre-configured in this template.
+# When present, the sandbox service will skip SDK injection, saving 2-5 seconds.
+# Do not delete this file.

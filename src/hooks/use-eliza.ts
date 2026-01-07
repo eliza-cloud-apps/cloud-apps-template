@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import type { ChatMessage, ChatResponse, StreamChunk } from '@/lib/eliza';
+import type { ChatMessage, ChatResponse, StreamChunk, ImageResult } from '@/lib/eliza';
 
 // ============================================================================
 // Chat Hooks
@@ -93,25 +93,75 @@ export function useChatStream() {
  * Hook for image generation.
  * 
  * @example
- * const { generate, loading, error, imageUrl } = useImageGeneration();
+ * const { generate, loading, error, result } = useImageGeneration();
  * await generate('A beautiful sunset');
- * console.log(imageUrl);
+ * console.log(result?.images?.[0]?.url);
  */
 export function useImageGeneration() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<ImageResult | null>(null);
 
   const generate = useCallback(async (
     prompt: string,
-    options?: { model?: string; width?: number; height?: number }
-  ): Promise<string | null> => {
+    options?: { 
+      model?: string; 
+      width?: number; 
+      height?: number;
+      numImages?: number;
+      aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+    }
+  ): Promise<ImageResult | null> => {
     setLoading(true);
     setError(null);
     try {
       const { generateImage } = await import('@/lib/eliza');
-      const result = await generateImage(prompt, options);
-      setImageUrl(result.url);
+      const imageResult = await generateImage(prompt, options);
+      setResult(imageResult);
+      return imageResult;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      setError(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setResult(null);
+    setError(null);
+  }, []);
+
+  return { generate, loading, error, result, reset };
+}
+
+// ============================================================================
+// Video Generation Hook
+// ============================================================================
+
+/**
+ * Hook for video generation.
+ * 
+ * @example
+ * const { generate, loading, videoUrl } = useVideoGeneration();
+ * await generate('A timelapse of clouds');
+ */
+export function useVideoGeneration() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+
+  const generate = useCallback(async (
+    prompt: string,
+    options?: { model?: string; duration?: number }
+  ): Promise<string | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { generateVideo } = await import('@/lib/eliza');
+      const result = await generateVideo(prompt, options);
+      setVideoUrl(result.url);
       return result.url;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
@@ -123,76 +173,11 @@ export function useImageGeneration() {
   }, []);
 
   const reset = useCallback(() => {
-    setImageUrl(null);
+    setVideoUrl(null);
     setError(null);
   }, []);
 
-  return { generate, loading, error, imageUrl, reset };
-}
-
-// ============================================================================
-// Agents Hook
-// ============================================================================
-
-interface Agent {
-  id: string;
-  name: string;
-  bio: string;
-  avatar?: string;
-}
-
-/**
- * Hook for listing and chatting with agents.
- * 
- * @example
- * const { agents, loading, chatWith } = useAgents();
- * const { response } = await chatWith(agents[0].id, 'Hello!');
- */
-export function useAgents() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [roomIds, setRoomIds] = useState<Record<string, string>>({});
-
-  const fetchAgents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { listAgents } = await import('@/lib/eliza');
-      const result = await listAgents();
-      setAgents(result.agents);
-      return result.agents;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      setError(msg);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const chatWith = useCallback(async (
-    agentId: string,
-    message: string
-  ): Promise<{ response: string; roomId: string } | null> => {
-    try {
-      const { chatWithAgent } = await import('@/lib/eliza');
-      const result = await chatWithAgent(agentId, message, roomIds[agentId]);
-      setRoomIds(prev => ({ ...prev, [agentId]: result.roomId }));
-      return result;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      setError(msg);
-      return null;
-    }
-  }, [roomIds]);
-
-  // Auto-fetch on mount
-  useEffect(() => {
-    fetchAgents();
-  }, [fetchAgents]);
-
-  return { agents, loading, error, fetchAgents, chatWith };
+  return { generate, loading, error, videoUrl, reset };
 }
 
 // ============================================================================
@@ -272,50 +257,4 @@ export function usePageTracking() {
     };
     track();
   }, [pathname]);
-}
-
-// ============================================================================
-// File Upload Hook
-// ============================================================================
-
-/**
- * Hook for file uploads.
- * 
- * @example
- * const { upload, loading, uploadedUrl } = useFileUpload();
- * const input = document.querySelector('input[type="file"]');
- * const url = await upload(input.files[0]);
- */
-export function useFileUpload() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-
-  const upload = useCallback(async (
-    file: File | Blob,
-    filename?: string
-  ): Promise<string | null> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const { uploadFile } = await import('@/lib/eliza');
-      const name = filename || (file instanceof File ? file.name : 'upload');
-      const result = await uploadFile(file, name);
-      setUploadedUrl(result.url);
-      return result.url;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      setError(msg);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const reset = useCallback(() => {
-    setUploadedUrl(null);
-    setError(null);
-  }, []);
-
-  return { upload, loading, error, uploadedUrl, reset };
 }

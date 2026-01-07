@@ -4,11 +4,16 @@
  * Pre-configured API client for Eliza Cloud services.
  * All API calls automatically use the injected API key.
  * 
- * DO NOT MODIFY THIS FILE - it's configured for your app automatically.
+ * Available APIs:
+ * - chat / chatStream: AI chat completions (OpenAI-compatible)
+ * - generateImage: AI image generation
+ * - generateVideo: AI video generation  
+ * - getBalance: Check credit balance
+ * - trackPageView: Analytics tracking
  */
 
 const apiKey = process.env.NEXT_PUBLIC_ELIZA_API_KEY || '';
-const apiBase = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'https://elizacloud.ai';
+const apiBase = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'https://www.elizacloud.ai';
 const appId = process.env.NEXT_PUBLIC_ELIZA_APP_ID || '';
 
 // ============================================================================
@@ -46,23 +51,16 @@ export interface StreamChunk {
 export interface ImageResult {
   url: string;
   id: string;
+  images?: Array<{
+    url?: string;
+    image?: string;
+    mimeType?: string;
+  }>;
 }
 
-export interface Agent {
-  id: string;
-  name: string;
-  bio: string;
-  avatar?: string;
-}
-
-export interface AgentChatResult {
-  response: string;
-  roomId: string;
-}
-
-export interface UploadResult {
-  id: string;
+export interface VideoResult {
   url: string;
+  id: string;
 }
 
 export interface BalanceResult {
@@ -107,7 +105,7 @@ const trackedPaths = new Set<string>();
 
 /**
  * Track a page view for analytics.
- * Called automatically by ElizaAnalytics component.
+ * Uses sendBeacon for reliable delivery even on page unload.
  */
 export async function trackPageView(pathname?: string): Promise<void> {
   if (typeof window === 'undefined') return;
@@ -117,18 +115,28 @@ export async function trackPageView(pathname?: string): Promise<void> {
   trackedPaths.add(path);
   
   try {
-    await elizaFetch('/api/v1/track/pageview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        app_id: appId,
-        page_url: window.location.href,
-        pathname: path,
-        referrer: document.referrer,
-        screen_width: window.screen.width,
-        screen_height: window.screen.height,
-      }),
-    });
+    const payload = {
+      app_id: appId,
+      page_url: window.location.href,
+      pathname: path,
+      referrer: document.referrer,
+      screen_width: window.screen.width,
+      screen_height: window.screen.height,
+      ...(apiKey ? { api_key: apiKey } : {}),
+    };
+
+    const url = `${apiBase}/api/v1/track/pageview`;
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, blob);
+    } else {
+      fetch(url, {
+        method: 'POST',
+        body: blob,
+        keepalive: true,
+      }).catch(() => {});
+    }
   } catch {
     // Silent fail - don't break app for analytics
   }
@@ -219,12 +227,19 @@ export async function* chatStream(
  * Generate an image from a text prompt.
  * 
  * @example
- * const { url } = await generateImage('A sunset over mountains');
- * console.log(url);
+ * const result = await generateImage('A sunset over mountains');
+ * // result.images[0].url contains the image URL
  */
 export async function generateImage(
   prompt: string,
-  options?: { model?: string; width?: number; height?: number }
+  options?: { 
+    model?: string; 
+    width?: number; 
+    height?: number;
+    numImages?: number;
+    aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
+    stylePreset?: string;
+  }
 ): Promise<ImageResult> {
   return elizaFetch<ImageResult>('/api/v1/generate-image', {
     method: 'POST',
@@ -246,79 +261,12 @@ export async function generateImage(
 export async function generateVideo(
   prompt: string,
   options?: { model?: string; duration?: number }
-): Promise<{ url: string; id: string }> {
-  return elizaFetch('/api/v1/generate-video', {
+): Promise<VideoResult> {
+  return elizaFetch<VideoResult>('/api/v1/generate-video', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt, ...options }),
   });
-}
-
-// ============================================================================
-// Agents
-// ============================================================================
-
-/**
- * List available AI agents.
- * 
- * @example
- * const { agents } = await listAgents();
- * agents.forEach(agent => console.log(agent.name));
- */
-export async function listAgents(): Promise<{ agents: Agent[] }> {
-  return elizaFetch('/api/v1/agents', {});
-}
-
-/**
- * Chat with a specific AI agent.
- * Pass roomId from previous response to continue conversation.
- * 
- * @example
- * const { response, roomId } = await chatWithAgent('agent-123', 'Hello!');
- * // Continue conversation:
- * const { response: reply } = await chatWithAgent('agent-123', 'How are you?', roomId);
- */
-export async function chatWithAgent(
-  agentId: string,
-  message: string,
-  roomId?: string
-): Promise<AgentChatResult> {
-  return elizaFetch('/api/v1/agents/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agentId, message, roomId }),
-  });
-}
-
-// ============================================================================
-// Storage
-// ============================================================================
-
-/**
- * Upload a file to Eliza Cloud storage.
- * 
- * @example
- * const file = new File(['Hello'], 'test.txt');
- * const { url } = await uploadFile(file, 'test.txt');
- */
-export async function uploadFile(
-  file: File | Blob,
-  filename: string
-): Promise<UploadResult> {
-  const formData = new FormData();
-  formData.append('file', file, filename);
-  
-  const res = await fetch(`${apiBase}/api/v1/storage/upload`, {
-    method: 'POST',
-    headers: apiKey ? { 'X-Api-Key': apiKey } : {},
-    body: formData,
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
-  }
-  
-  return res.json();
 }
 
 // ============================================================================
@@ -333,7 +281,7 @@ export async function uploadFile(
  * if (balance < 5) alert('Low credits!');
  */
 export async function getBalance(): Promise<BalanceResult> {
-  return elizaFetch('/api/v1/credits/balance', {});
+  return elizaFetch<BalanceResult>('/api/v1/credits/balance', {});
 }
 
 // ============================================================================
@@ -345,9 +293,6 @@ export const eliza = {
   chatStream,
   generateImage,
   generateVideo,
-  listAgents,
-  chatWithAgent,
-  uploadFile,
   getBalance,
   trackPageView,
 };

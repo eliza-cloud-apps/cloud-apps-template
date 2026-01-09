@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import type { ChatMessage, ChatResponse, StreamChunk, ImageResult } from '@/lib/eliza';
+import type { ChatMessage, ChatResponse, StreamChunk, ImageResult, Agent, AgentChatResponse, UploadResult } from '@/lib/eliza';
 
 // ============================================================================
 // Chat Hooks
@@ -178,6 +178,268 @@ export function useVideoGeneration() {
   }, []);
 
   return { generate, loading, error, videoUrl, reset };
+}
+
+// ============================================================================
+// Agent Hooks
+// ============================================================================
+
+/**
+ * Hook for listing and chatting with AI agents.
+ * 
+ * @example
+ * const { agents, loading, chat, selectedAgent } = useAgents();
+ * 
+ * // List is auto-fetched on mount
+ * agents.map(agent => <AgentCard agent={agent} />);
+ * 
+ * // Chat with an agent
+ * const response = await chat(agent.id, 'Hello!');
+ */
+export function useAgents() {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [roomIds, setRoomIds] = useState<Record<string, string>>({});
+
+  const fetchAgents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { listAgents } = await import('@/lib/eliza');
+      const result = await listAgents();
+      setAgents(result);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load agents';
+      setError(msg);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
+
+  const chatWith = useCallback(async (
+    agentId: string,
+    message: string
+  ): Promise<AgentChatResponse | null> => {
+    try {
+      const { chatWithAgent } = await import('@/lib/eliza');
+      const roomId = roomIds[agentId];
+      const response = await chatWithAgent(agentId, message, roomId);
+      
+      // Store room ID for continued conversation
+      if (response.roomId) {
+        setRoomIds(prev => ({ ...prev, [agentId]: response.roomId }));
+      }
+      
+      return response;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Chat failed';
+      setError(msg);
+      return null;
+    }
+  }, [roomIds]);
+
+  const resetConversation = useCallback((agentId: string) => {
+    setRoomIds(prev => {
+      const next = { ...prev };
+      delete next[agentId];
+      return next;
+    });
+  }, []);
+
+  return { 
+    agents, 
+    loading, 
+    error, 
+    refresh: fetchAgents, 
+    chatWith,  // Named to match the pattern in knowledge-context
+    resetConversation,
+    roomIds,
+  };
+}
+
+/**
+ * Hook for chatting with a specific agent.
+ * Handles conversation state and streaming.
+ * 
+ * @example
+ * const { messages, send, loading, agent } = useAgentChat('agent-id');
+ * 
+ * // Send a message
+ * await send('Hello!');
+ * 
+ * // Messages are automatically updated
+ * messages.map(m => <Message {...m} />);
+ */
+export function useAgentChat(agentId: string) {
+  const [agent, setAgent] = useState<Agent | null>(null);
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [agentLoading, setAgentLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch agent info
+  useEffect(() => {
+    const fetchAgent = async () => {
+      setAgentLoading(true);
+      try {
+        const { getAgent } = await import('@/lib/eliza');
+        const result = await getAgent(agentId);
+        setAgent(result);
+      } catch {
+        setError('Failed to load agent');
+      } finally {
+        setAgentLoading(false);
+      }
+    };
+    fetchAgent();
+  }, [agentId]);
+
+  const send = useCallback(async (message: string): Promise<string | null> => {
+    setLoading(true);
+    setError(null);
+    
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', content: message }]);
+    
+    try {
+      const { chatWithAgent } = await import('@/lib/eliza');
+      const response = await chatWithAgent(agentId, message, roomId || undefined);
+      
+      if (response.roomId) {
+        setRoomId(response.roomId);
+      }
+      
+      // Add assistant message
+      setMessages(prev => [...prev, { role: 'assistant', content: response.text }]);
+      
+      return response.text;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Chat failed';
+      setError(msg);
+      // Remove the user message on error
+      setMessages(prev => prev.slice(0, -1));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId, roomId]);
+
+  const sendStream = useCallback(async function* (message: string) {
+    setLoading(true);
+    setError(null);
+    
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', content: message }]);
+    
+    // Add empty assistant message for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+    
+    try {
+      const { chatWithAgentStream } = await import('@/lib/eliza');
+      
+      for await (const chunk of chatWithAgentStream(agentId, message, roomId || undefined)) {
+        if (chunk.text) {
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1].content += chunk.text;
+            return updated;
+          });
+          yield chunk.text;
+        }
+        if (chunk.roomId) {
+          setRoomId(chunk.roomId);
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Chat failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId, roomId]);
+
+  const reset = useCallback(() => {
+    setMessages([]);
+    setRoomId(null);
+    setError(null);
+  }, []);
+
+  return {
+    agent,
+    agentLoading,
+    messages,
+    loading,
+    error,
+    send,
+    sendStream,
+    reset,
+    roomId,
+  };
+}
+
+// ============================================================================
+// File Upload Hook
+// ============================================================================
+
+/**
+ * Hook for file uploads.
+ * 
+ * @example
+ * const { upload, loading, uploadedUrl } = useFileUpload();
+ * 
+ * const handleFileChange = async (e) => {
+ *   const file = e.target.files[0];
+ *   const result = await upload(file);
+ *   console.log('Uploaded to:', result.url);
+ * };
+ */
+export function useFileUpload() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<UploadResult | null>(null);
+
+  const upload = useCallback(async (
+    file: File,
+    filename?: string
+  ): Promise<UploadResult | null> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { uploadFile } = await import('@/lib/eliza');
+      const uploadResult = await uploadFile(file, filename);
+      setResult(uploadResult);
+      return uploadResult;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Upload failed';
+      setError(msg);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setResult(null);
+    setError(null);
+  }, []);
+
+  return { 
+    upload, 
+    loading, 
+    error, 
+    result,
+    uploadedUrl: result?.url || null,
+    reset,
+  };
 }
 
 // ============================================================================

@@ -70,6 +70,27 @@ export interface BalanceResult {
   balance: number;
 }
 
+export interface Agent {
+  id: string;
+  name: string;
+  description?: string;
+  avatar?: string;
+  status: 'active' | 'inactive';
+}
+
+export interface AgentChatResponse {
+  text: string;
+  roomId: string;
+  agentId: string;
+}
+
+export interface UploadResult {
+  url: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+}
+
 // ============================================================================
 // Core Fetch Utility
 // ============================================================================
@@ -286,6 +307,171 @@ export async function generateVideo(
 }
 
 // ============================================================================
+// Agents
+// ============================================================================
+
+/**
+ * List available AI agents.
+ * 
+ * @example
+ * const agents = await listAgents();
+ * console.log(agents[0].name);
+ */
+export async function listAgents(): Promise<Agent[]> {
+  const result = await elizaFetch<{ agents: Agent[] }>('/api/v1/agents', {});
+  return result.agents || [];
+}
+
+/**
+ * Get a specific agent by ID.
+ * 
+ * @example
+ * const agent = await getAgent('agent-id');
+ * console.log(agent.name);
+ */
+export async function getAgent(agentId: string): Promise<Agent | null> {
+  try {
+    return await elizaFetch<Agent>(`/api/v1/agents/${agentId}`, {});
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Chat with a specific AI agent.
+ * Agent conversations are persisted in rooms.
+ * 
+ * @example
+ * const response = await chatWithAgent('agent-id', 'Hello!');
+ * console.log(response.text);
+ * 
+ * // Continue conversation in same room
+ * const response2 = await chatWithAgent('agent-id', 'Tell me more', response.roomId);
+ */
+export async function chatWithAgent(
+  agentId: string,
+  message: string,
+  roomId?: string
+): Promise<AgentChatResponse> {
+  return elizaFetch<AgentChatResponse>(`/api/v1/agents/${agentId}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      message,
+      roomId,
+    }),
+  });
+}
+
+/**
+ * Stream chat with a specific AI agent.
+ * Returns an async generator that yields text chunks.
+ * 
+ * @example
+ * let fullResponse = '';
+ * for await (const chunk of chatWithAgentStream('agent-id', 'Hello!')) {
+ *   fullResponse += chunk.text;
+ *   console.log(chunk.text);
+ * }
+ */
+export async function* chatWithAgentStream(
+  agentId: string,
+  message: string,
+  roomId?: string
+): AsyncGenerator<{ text: string; roomId?: string }> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  if (appId) {
+    headers['X-App-Id'] = appId;
+  }
+  
+  const res = await fetch(`${apiBase}/api/v1/agents/${agentId}/chat/stream`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ message, roomId }),
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Agent chat error (${res.status}): ${await res.text()}`);
+  }
+  
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+        try {
+          yield JSON.parse(line.slice(6));
+        } catch {
+          // Skip malformed chunks
+        }
+      }
+    }
+  }
+}
+
+// ============================================================================
+// File Upload
+// ============================================================================
+
+/**
+ * Upload a file to Eliza Cloud storage.
+ * Returns the URL of the uploaded file.
+ * 
+ * @example
+ * const file = document.querySelector('input[type="file"]').files[0];
+ * const result = await uploadFile(file);
+ * console.log(result.url);
+ */
+export async function uploadFile(
+  file: File,
+  filename?: string
+): Promise<UploadResult> {
+  const formData = new FormData();
+  formData.append('file', file, filename || file.name);
+  
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  if (appId) {
+    headers['X-App-Id'] = appId;
+  }
+  
+  const res = await fetch(`${apiBase}/api/v1/upload`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Upload error (${res.status}): ${await res.text()}`);
+  }
+  
+  return res.json();
+}
+
+// ============================================================================
 // Credits & Billing
 // ============================================================================
 
@@ -312,11 +498,22 @@ export async function getBalance(): Promise<BalanceResult> {
 // ============================================================================
 
 export const eliza = {
+  // Chat
   chat,
   chatStream,
+  // Agents
+  listAgents,
+  getAgent,
+  chatWithAgent,
+  chatWithAgentStream,
+  // Generation
   generateImage,
   generateVideo,
+  // Files
+  uploadFile,
+  // Credits
   getBalance,
+  // Analytics
   trackPageView,
 };
 

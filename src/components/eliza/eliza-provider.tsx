@@ -168,10 +168,26 @@ export function ElizaProvider({
 /**
  * Access the Eliza context.
  * Must be used within an ElizaProvider.
+ * Returns null during SSR to prevent hydration errors.
  */
 export function useEliza() {
   const context = useContext(ElizaContext);
   if (!context) {
+    // During SSR or if ElizaProvider is missing, return a safe default
+    // instead of throwing to prevent build/render errors
+    if (typeof window === 'undefined') {
+      return {
+        credits: {
+          balance: null,
+          loading: true,
+          error: null,
+          refresh: async () => {},
+          hasLowBalance: false,
+        },
+        appId: null,
+        isReady: false,
+      } as ElizaContextType;
+    }
     throw new Error('useEliza must be used within an ElizaProvider');
   }
   return context;

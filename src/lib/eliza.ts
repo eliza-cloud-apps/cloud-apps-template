@@ -3,14 +3,17 @@
  * 
  * Pre-configured API client for Eliza Cloud services.
  * All API calls automatically use the injected API key.
+ * When user is authenticated, their credits are used instead of org credits.
  * 
  * Available APIs:
  * - chat / chatStream: AI chat completions (OpenAI-compatible)
  * - generateImage: AI image generation
  * - generateVideo: AI video generation  
- * - getBalance: Check credit balance
+ * - getBalance: Check credit balance (org balance or user's app balance)
  * - trackPageView: Analytics tracking
  */
+
+import { getAuthHeaders, isAuthenticated } from './eliza-auth';
 
 const apiKey = process.env.NEXT_PUBLIC_ELIZA_API_KEY || '';
 const apiBase = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'https://www.elizacloud.ai';
@@ -78,10 +81,17 @@ async function elizaFetch<T>(
   const url = `${apiBase}${path}`;
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
+    ...getAuthHeaders(), // Include user auth if authenticated
   };
   
+  // App API key (always include)
   if (apiKey) {
     headers['X-Api-Key'] = apiKey;
+  }
+  
+  // App ID for routing and billing
+  if (appId) {
+    headers['X-App-Id'] = appId;
   }
   
   const res = await fetch(url, {
@@ -91,6 +101,12 @@ async function elizaFetch<T>(
   
   if (!res.ok) {
     const errorText = await res.text();
+    
+    // Handle insufficient credits error
+    if (res.status === 402) {
+      throw new Error('INSUFFICIENT_CREDITS: Not enough credits. Please purchase more.');
+    }
+    
     throw new Error(`Eliza API Error (${res.status}): ${errorText}`);
   }
   
@@ -275,12 +291,19 @@ export async function generateVideo(
 
 /**
  * Get current credit balance.
+ * If user is authenticated, returns their app-specific balance.
+ * Otherwise, returns the org's balance.
  * 
  * @example
  * const { balance } = await getBalance();
  * if (balance < 5) alert('Low credits!');
  */
 export async function getBalance(): Promise<BalanceResult> {
+  // If user is authenticated, get their app-specific balance
+  if (isAuthenticated() && appId) {
+    return elizaFetch<BalanceResult>(`/api/v1/app-credits/balance?app_id=${appId}`, {});
+  }
+  // Otherwise, get org balance (fallback)
   return elizaFetch<BalanceResult>('/api/v1/credits/balance', {});
 }
 

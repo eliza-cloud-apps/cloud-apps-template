@@ -188,9 +188,6 @@ To enable user authentication in your app:
 3. Copy the App ID
 4. Add to your .env.local:
    NEXT_PUBLIC_ELIZA_APP_ID=your-app-id-here
-
-For standalone testing without user auth, you can use the API key method instead:
-- Set NEXT_PUBLIC_ELIZA_API_KEY for server-side API access
 `.trim();
     
     console.error(errorMessage);

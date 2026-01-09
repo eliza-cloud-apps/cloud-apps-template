@@ -154,10 +154,11 @@ src/
 Set these in your `.env.local`:
 
 ```env
-NEXT_PUBLIC_ELIZA_API_KEY=your-api-key
 NEXT_PUBLIC_ELIZA_APP_ID=your-app-id
 NEXT_PUBLIC_ELIZA_API_URL=https://www.elizacloud.ai
 ```
+
+Get your App ID from https://www.elizacloud.ai/dashboard/apps
 
 ## CSS Utilities
 

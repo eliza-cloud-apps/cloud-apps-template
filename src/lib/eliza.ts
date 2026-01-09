@@ -15,7 +15,6 @@
 
 import { getAuthHeaders, isAuthenticated } from './eliza-auth';
 
-const apiKey = process.env.NEXT_PUBLIC_ELIZA_API_KEY || '';
 const apiBase = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'https://www.elizacloud.ai';
 const appId = process.env.NEXT_PUBLIC_ELIZA_APP_ID || '';
 
@@ -102,13 +101,8 @@ async function elizaFetch<T>(
   const url = `${apiBase}${path}`;
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
-    ...getAuthHeaders(), // Include user auth if authenticated
+    ...getAuthHeaders(), // Include user auth token
   };
-  
-  // App API key (always include)
-  if (apiKey) {
-    headers['X-Api-Key'] = apiKey;
-  }
   
   // App ID for routing and billing
   if (appId) {
@@ -159,7 +153,6 @@ export async function trackPageView(pathname?: string): Promise<void> {
       referrer: document.referrer,
       screen_width: window.screen.width,
       screen_height: window.screen.height,
-      ...(apiKey ? { api_key: apiKey } : {}),
     };
 
     const url = `${apiBase}/api/v1/track/pageview`;
@@ -222,9 +215,6 @@ export async function* chatStream(
     ...getAuthHeaders(),
   };
   
-  if (apiKey) {
-    headers['X-Api-Key'] = apiKey;
-  }
   if (appId) {
     headers['X-App-Id'] = appId;
   }
@@ -393,9 +383,6 @@ export async function* chatWithAgentStream(
     ...getAuthHeaders(),
   };
   
-  if (apiKey) {
-    headers['X-Api-Key'] = apiKey;
-  }
   if (appId) {
     headers['X-App-Id'] = appId;
   }
@@ -460,9 +447,6 @@ export async function uploadFile(
     ...getAuthHeaders(),
   };
   
-  if (apiKey) {
-    headers['X-Api-Key'] = apiKey;
-  }
   if (appId) {
     headers['X-App-Id'] = appId;
   }

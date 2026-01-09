@@ -1,13 +1,12 @@
 /**
  * Eliza Cloud App Credits
  * 
- * Manages user-specific credit balances for apps.
- * Users have their own credit balance per app they use.
+ * Manages user credit balances using organization credits.
  * 
  * @example
  * import { getAppCredits, purchaseCredits } from '@/lib/eliza-credits';
  * 
- * // Get user's balance in this app
+ * // Get user's balance
  * const { balance } = await getAppCredits();
  * 
  * // Purchase more credits
@@ -19,7 +18,9 @@ import { getAuthHeaders, isAuthenticated } from './eliza-auth';
 
 const apiBase = process.env.NEXT_PUBLIC_ELIZA_API_URL || 'https://www.elizacloud.ai';
 const appId = process.env.NEXT_PUBLIC_ELIZA_APP_ID || '';
-const apiKey = process.env.NEXT_PUBLIC_ELIZA_API_KEY || '';
+
+// Use organization credits by default. Set to true for app-specific credits.
+const USE_APP_CREDITS = process.env.NEXT_PUBLIC_USE_APP_CREDITS === 'true';
 
 // ============================================================================
 // Types
@@ -72,7 +73,8 @@ export interface PurchaseRecord {
 // ============================================================================
 
 /**
- * Get the user's credit balance for this app.
+ * Get the user's credit balance.
+ * Uses organization credits by default, or app-specific credits if USE_APP_CREDITS is true.
  * Requires the user to be authenticated.
  * 
  * @example
@@ -84,11 +86,13 @@ export async function getAppCredits(): Promise<AppCreditBalance> {
     return { balance: 0, totalPurchased: 0, totalSpent: 0, isLow: true };
   }
   
-  const res = await fetch(`${apiBase}/api/v1/app-credits/balance?app_id=${appId}`, {
-    headers: {
-      ...getAuthHeaders(),
-      'X-Api-Key': apiKey,
-    },
+  // Use organization credits endpoint by default
+  const endpoint = USE_APP_CREDITS 
+    ? `${apiBase}/api/v1/app-credits/balance?app_id=${appId}`
+    : `${apiBase}/api/v1/credits/balance`;
+  
+  const res = await fetch(endpoint, {
+    headers: getAuthHeaders(),
   });
   
   if (!res.ok) {
@@ -96,11 +100,13 @@ export async function getAppCredits(): Promise<AppCreditBalance> {
   }
   
   const data = await res.json();
+  const balance = data.balance ?? 0;
+  
   return {
-    balance: data.balance ?? 0,
+    balance,
     totalPurchased: data.totalPurchased ?? 0,
     totalSpent: data.totalSpent ?? 0,
-    isLow: data.isLow ?? (data.balance < 5),
+    isLow: data.isLow ?? (balance < 5),
   };
 }
 
@@ -120,19 +126,31 @@ export async function purchaseCredits(params: PurchaseParams): Promise<CheckoutS
   const successUrl = params.successUrl || `${window.location.origin}/billing/success`;
   const cancelUrl = params.cancelUrl || `${window.location.origin}/billing`;
   
-  const res = await fetch(`${apiBase}/api/v1/app-credits/checkout`, {
+  // Use app-specific checkout for app credits, otherwise use main checkout
+  const endpoint = USE_APP_CREDITS 
+    ? `${apiBase}/api/v1/app-credits/checkout`
+    : `${apiBase}/api/v1/credits/checkout`;
+  
+  const body = USE_APP_CREDITS
+    ? {
+        app_id: appId,
+        amount: params.amount,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      }
+    : {
+        credits: params.amount,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      };
+  
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
-      'X-Api-Key': apiKey,
     },
-    body: JSON.stringify({
-      app_id: appId,
-      amount: params.amount,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    }),
+    body: JSON.stringify(body),
   });
   
   if (!res.ok) {
@@ -152,11 +170,12 @@ export async function purchaseCredits(params: PurchaseParams): Promise<CheckoutS
  * if (success) showSuccessMessage();
  */
 export async function verifyPurchase(sessionId: string): Promise<boolean> {
-  const res = await fetch(`${apiBase}/api/v1/app-credits/verify?session_id=${sessionId}`, {
-    headers: {
-      ...getAuthHeaders(),
-      'X-Api-Key': apiKey,
-    },
+  const endpoint = USE_APP_CREDITS
+    ? `${apiBase}/api/v1/app-credits/verify?session_id=${sessionId}`
+    : `${apiBase}/api/v1/credits/verify?session_id=${sessionId}`;
+    
+  const res = await fetch(endpoint, {
+    headers: getAuthHeaders(),
   });
   
   if (!res.ok) return false;
@@ -166,7 +185,8 @@ export async function verifyPurchase(sessionId: string): Promise<boolean> {
 }
 
 /**
- * Get credit usage history for the current user in this app.
+ * Get credit usage history for the current user.
+ * Note: For org credits, this returns transaction history. For app credits, returns app-specific usage.
  * 
  * @param limit Maximum number of records to return
  */
@@ -175,26 +195,27 @@ export async function getUsageHistory(limit = 50): Promise<CreditUsageRecord[]> 
     return [];
   }
   
-  const res = await fetch(
-    `${apiBase}/api/v1/app-credits/usage?app_id=${appId}&limit=${limit}`,
-    {
-      headers: {
-        ...getAuthHeaders(),
-        'X-Api-Key': apiKey,
-      },
-    }
-  );
+  const endpoint = USE_APP_CREDITS
+    ? `${apiBase}/api/v1/app-credits/usage?app_id=${appId}&limit=${limit}`
+    : `${apiBase}/api/v1/credits/transactions?limit=${limit}`;
+  
+  const res = await fetch(endpoint, {
+    headers: getAuthHeaders(),
+  });
   
   if (!res.ok) {
+    // Org credits might not have a transactions endpoint - gracefully fail
+    if (!USE_APP_CREDITS) return [];
     throw new Error('Failed to fetch usage history');
   }
   
   const data = await res.json();
-  return data.usage || [];
+  return data.usage || data.transactions || [];
 }
 
 /**
- * Get purchase history for the current user in this app.
+ * Get purchase history for the current user.
+ * Note: For org credits, this returns payment history. For app credits, returns app-specific purchases.
  * 
  * @param limit Maximum number of records to return
  */
@@ -203,17 +224,17 @@ export async function getPurchaseHistory(limit = 50): Promise<PurchaseRecord[]> 
     return [];
   }
   
-  const res = await fetch(
-    `${apiBase}/api/v1/app-credits/history?app_id=${appId}&limit=${limit}`,
-    {
-      headers: {
-        ...getAuthHeaders(),
-        'X-Api-Key': apiKey,
-      },
-    }
-  );
+  const endpoint = USE_APP_CREDITS
+    ? `${apiBase}/api/v1/app-credits/history?app_id=${appId}&limit=${limit}`
+    : `${apiBase}/api/v1/credits/purchases?limit=${limit}`;
+  
+  const res = await fetch(endpoint, {
+    headers: getAuthHeaders(),
+  });
   
   if (!res.ok) {
+    // Org credits might not have a purchases endpoint - gracefully fail
+    if (!USE_APP_CREDITS) return [];
     throw new Error('Failed to fetch purchase history');
   }
   

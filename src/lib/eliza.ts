@@ -217,12 +217,21 @@ export async function* chatStream(
   messages: ChatMessage[],
   model = 'gpt-4o'
 ): AsyncGenerator<StreamChunk> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+  };
+  
+  if (apiKey) {
+    headers['X-Api-Key'] = apiKey;
+  }
+  if (appId) {
+    headers['X-App-Id'] = appId;
+  }
+  
   const res = await fetch(`${apiBase}/api/v1/chat/completions`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiKey ? { 'X-Api-Key': apiKey } : {}),
-    },
+    headers,
     body: JSON.stringify({ messages, model, stream: true }),
   });
   

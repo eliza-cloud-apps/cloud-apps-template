@@ -152,8 +152,19 @@ export function isAuthenticated(): boolean {
 }
 
 /**
+ * Check if app-specific authentication is available.
+ * Returns false when running standalone without NEXT_PUBLIC_ELIZA_APP_ID.
+ */
+export function isAppAuthAvailable(): boolean {
+  return !!appId;
+}
+
+/**
  * Initiate sign in with Eliza Cloud.
  * Redirects user to Eliza Cloud login page, then back to your app.
+ * 
+ * NOTE: Requires NEXT_PUBLIC_ELIZA_APP_ID to be set. 
+ * When running standalone, create an app at elizacloud.ai/dashboard/apps first.
  * 
  * @example
  * // Simple sign in
@@ -164,6 +175,27 @@ export function isAuthenticated(): boolean {
  */
 export function signIn(options?: SignInOptions): void {
   if (typeof window === 'undefined') return;
+  
+  // Validate appId is configured
+  if (!appId) {
+    const errorMessage = `
+[Eliza Auth] NEXT_PUBLIC_ELIZA_APP_ID is not configured.
+
+To enable user authentication in your app:
+
+1. Go to https://www.elizacloud.ai/dashboard/apps
+2. Create a new app (or use an existing one)
+3. Copy the App ID
+4. Add to your .env.local:
+   NEXT_PUBLIC_ELIZA_APP_ID=your-app-id-here
+
+For standalone testing without user auth, you can use the API key method instead:
+- Set NEXT_PUBLIC_ELIZA_API_KEY for server-side API access
+`.trim();
+    
+    console.error(errorMessage);
+    throw new Error('App ID not configured. Set NEXT_PUBLIC_ELIZA_APP_ID in your environment. See console for details.');
+  }
   
   const redirectUrl = options?.redirectUrl || window.location.href;
   const callbackUrl = new URL('/auth/callback', window.location.origin).toString();
@@ -353,6 +385,7 @@ export const elizaAuth = {
   signOut,
   getUser,
   isAuthenticated,
+  isAppAuthAvailable,
   handleCallback,
   getPostAuthRedirect,
   refreshSession,

@@ -8,8 +8,8 @@
 
 import { type ReactNode, useState, useEffect } from 'react';
 import { useElizaAuth } from '@/hooks/use-eliza-auth';
-import { signIn, signOut, type ElizaUser, type SignInOptions } from '@/lib/eliza-auth';
-import { Loader2, LogOut, User, ChevronDown, LogIn } from 'lucide-react';
+import { signIn, signOut, isAppAuthAvailable, type ElizaUser, type SignInOptions } from '@/lib/eliza-auth';
+import { Loader2, LogOut, User, ChevronDown, LogIn, AlertCircle } from 'lucide-react';
 
 // ============================================================================
 // Sign In Button
@@ -43,6 +43,8 @@ export function SignInButton({
   showLoading = true,
 }: SignInButtonProps) {
   const { isAuthenticated, loading } = useElizaAuth();
+  const [error, setError] = useState<string | null>(null);
+  const appAuthAvailable = isAppAuthAvailable();
   
   // Don't show if already authenticated
   if (isAuthenticated) return null;
@@ -60,8 +62,59 @@ export function SignInButton({
   };
   
   const handleClick = () => {
-    signIn(signInOptions);
+    try {
+      setError(null);
+      signIn(signInOptions);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign in failed';
+      setError(message);
+      console.error('[SignInButton]', message);
+    }
   };
+  
+  // Show configuration hint when running standalone without app_id
+  if (!appAuthAvailable) {
+    return (
+      <div className={`text-center space-y-2 ${className}`}>
+        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>User auth requires NEXT_PUBLIC_ELIZA_APP_ID</span>
+        </div>
+        <p className="text-xs text-gray-500">
+          <a 
+            href="https://www.elizacloud.ai/dashboard/apps" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-eliza-orange hover:underline"
+          >
+            Create an app
+          </a>
+          {' '}to enable sign in
+        </p>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="text-center">
+        <p className="text-xs text-red-400 mb-2">{error}</p>
+        <button
+          onClick={handleClick}
+          className={`
+            inline-flex items-center justify-center font-medium rounded-lg
+            transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900
+            border border-red-500/50 text-red-400 hover:bg-red-500/10
+            ${sizeClasses[size]}
+            ${className}
+          `}
+        >
+          <LogIn className="h-4 w-4" />
+          Retry
+        </button>
+      </div>
+    );
+  }
   
   return (
     <button
@@ -307,16 +360,32 @@ function DefaultLoadingState() {
 }
 
 function DefaultLoginPrompt() {
+  const appAuthAvailable = isAppAuthAvailable();
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
       <div className="max-w-md w-full text-center space-y-6">
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-white">Sign in required</h1>
           <p className="text-gray-400">
-            Please sign in to access this page.
+            {appAuthAvailable 
+              ? 'Please sign in to access this page.'
+              : 'This page requires authentication to be configured.'}
           </p>
         </div>
         <SignInButton size="lg" />
+        {!appAuthAvailable && (
+          <div className="mt-4 p-4 rounded-lg bg-gray-900 border border-gray-800 text-left">
+            <h3 className="text-sm font-medium text-white mb-2">Setup Instructions:</h3>
+            <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
+              <li>Go to <a href="https://www.elizacloud.ai/dashboard/apps" target="_blank" rel="noopener noreferrer" className="text-eliza-orange hover:underline">elizacloud.ai/dashboard/apps</a></li>
+              <li>Create a new app</li>
+              <li>Copy the App ID</li>
+              <li>Add <code className="px-1 py-0.5 rounded bg-gray-800 text-gray-300">NEXT_PUBLIC_ELIZA_APP_ID=...</code> to .env.local</li>
+              <li>Restart the dev server</li>
+            </ol>
+          </div>
+        )}
       </div>
     </div>
   );

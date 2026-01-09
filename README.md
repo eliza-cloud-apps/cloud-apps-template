@@ -1,143 +1,182 @@
 # Eliza Cloud App Template
 
-This is the official template for building apps on [Eliza Cloud](https://elizacloud.ai).
+Production-ready template for building AI-powered apps on Eliza Cloud.
 
 ## Features
 
-- ✅ **Eliza SDK** - Pre-configured API client at `@/lib/eliza`
-- ✅ **React Hooks** - Ready-to-use hooks at `@/hooks/use-eliza`
-- ✅ **Analytics** - Automatic page view tracking
-- ✅ **Credits** - Balance management with `ElizaProvider`
-- ✅ **Dark Theme** - Beautiful dark UI with Eliza branding
-- ✅ **TypeScript** - Full type safety
-- ✅ **Tailwind CSS v4** - Modern styling
+- **🔐 Authentication** - Sign in/out with Eliza Cloud accounts
+- **💳 User Credits** - Each user has their own credit balance with Stripe checkout
+- **🤖 AI Chat** - Real-time streaming chat with GPT-4o
+- **🎯 Agent Chat** - Chat with specific AI characters/agents
+- **🖼️ Image Generation** - AI image creation
+- **📹 Video Generation** - AI video creation
+- **📁 File Upload** - Upload files to cloud storage
 
-## Quick Start
+## Getting Started
 
 ```bash
 # Install dependencies
 bun install
 
-# Start development server
+# Run development server
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see your app.
+## Pre-Built SDK
 
-## Project Structure
+Everything is pre-configured. Just import and use:
 
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── layout.tsx          # Root layout with ElizaProvider
-│   ├── page.tsx            # Home page
-│   └── globals.css         # Global styles
-├── components/
-│   └── eliza/              # Eliza Cloud components
-│       ├── eliza-provider.tsx  # Main provider
-│       └── index.ts        # Exports
-├── hooks/
-│   └── use-eliza.ts        # React hooks for Eliza API
-└── lib/
-    └── eliza.ts            # Core SDK (DO NOT MODIFY)
-```
-
-## Using the SDK
-
-### Chat with AI
+### AI Chat (Streaming)
 
 ```tsx
-import { useChat } from '@/hooks/use-eliza';
-
-function ChatComponent() {
-  const { send, loading, error } = useChat();
-  
-  const handleSend = async () => {
-    const response = await send([
-      { role: 'user', content: 'Hello!' }
-    ]);
-    console.log(response.choices[0].message.content);
-  };
-}
-```
-
-### Streaming Chat
-
-```tsx
+'use client';
 import { useChatStream } from '@/hooks/use-eliza';
 
-function StreamingChat() {
+function Chat() {
   const { stream, loading } = useChatStream();
-  const [content, setContent] = useState('');
-  
-  const handleStream = async () => {
-    for await (const chunk of stream([{ role: 'user', content: 'Hello!' }])) {
+  const [response, setResponse] = useState('');
+
+  const handleSend = async (message: string) => {
+    setResponse('');
+    for await (const chunk of stream([{ role: 'user', content: message }])) {
       const delta = chunk.choices?.[0]?.delta?.content;
-      if (delta) setContent(prev => prev + delta);
+      if (delta) setResponse(prev => prev + delta);
     }
   };
 }
 ```
 
-### Generate Images
+### Agent/Character Chat
 
 ```tsx
-import { useImageGeneration } from '@/hooks/use-eliza';
+'use client';
+import { useAgentChat } from '@/hooks/use-eliza';
 
-function ImageGen() {
-  const { generate, imageUrl, loading } = useImageGeneration();
-  
-  const handleGenerate = async () => {
-    await generate('A beautiful sunset');
+function CharacterChat() {
+  const { agent, messages, send, loading } = useAgentChat('agent-id');
+
+  const handleSend = async (text: string) => {
+    await send(text); // messages array updates automatically
   };
-  
-  return imageUrl ? <img src={imageUrl} alt="Generated" /> : null;
 }
 ```
 
-### Check Credits
+### Authentication
 
 ```tsx
-import { useElizaCredits } from '@/components/eliza';
+'use client';
+import { useElizaAuth, SignInButton, UserMenu, ProtectedRoute } from '@/components/eliza';
 
-function CreditCheck() {
-  const { balance, hasLowBalance } = useElizaCredits();
-  
-  if (hasLowBalance) {
-    return <p>Low credits! Please top up.</p>;
-  }
-  
-  return <p>Balance: {balance} credits</p>;
+// Sign in button
+<SignInButton />
+
+// User menu (when signed in)
+<UserMenu />
+
+// Protect pages that require auth
+<ProtectedRoute>
+  <Dashboard />
+</ProtectedRoute>
+
+// Use the hook for full control
+const { user, isAuthenticated, signIn, signOut } = useElizaAuth();
+```
+
+### User Credits
+
+```tsx
+'use client';
+import { 
+  useAppCredits, 
+  AppCreditDisplay, 
+  PurchaseCreditsButton,
+  AppLowBalanceWarning 
+} from '@/components/eliza';
+
+// Show balance
+<AppCreditDisplay showRefresh />
+
+// Purchase button (opens Stripe checkout)
+<PurchaseCreditsButton amount={50} />
+
+// Warning when low
+<AppLowBalanceWarning />
+
+// Hook for full control
+const { balance, hasLowBalance, purchase } = useAppCredits();
+```
+
+### Image Generation
+
+```tsx
+'use client';
+import { useImageGeneration } from '@/hooks/use-eliza';
+
+function ImageGen() {
+  const { generate, loading, result } = useImageGeneration();
+
+  const handleGenerate = async () => {
+    await generate('A sunset over mountains');
+    // result?.images?.[0]?.url contains the image
+  };
 }
+```
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── layout.tsx          # Root layout with ElizaProvider
+│   ├── page.tsx            # Working chat example
+│   ├── globals.css         # Tailwind v4 styles
+│   ├── auth/
+│   │   └── callback/       # OAuth callback (pre-built)
+│   └── billing/
+│       └── success/        # Purchase success (pre-built)
+├── components/
+│   └── eliza/              # Pre-built UI components
+│       ├── eliza-provider.tsx
+│       ├── auth-components.tsx
+│       └── credit-components.tsx
+├── hooks/
+│   ├── use-eliza.ts        # AI hooks (chat, image, agents)
+│   ├── use-eliza-auth.ts   # Auth hook
+│   └── use-eliza-credits.ts # Credits hook
+└── lib/
+    ├── eliza.ts            # SDK functions
+    ├── eliza-auth.ts       # Auth functions
+    └── eliza-credits.ts    # Credits functions
 ```
 
 ## Environment Variables
 
-The following variables are automatically injected:
+Set these in your `.env.local`:
 
-- `NEXT_PUBLIC_ELIZA_API_KEY` - Your app's API key
-- `NEXT_PUBLIC_ELIZA_API_URL` - Eliza Cloud API URL
-- `NEXT_PUBLIC_ELIZA_APP_ID` - Your app's ID
+```env
+NEXT_PUBLIC_ELIZA_API_KEY=your-api-key
+NEXT_PUBLIC_ELIZA_APP_ID=your-app-id
+NEXT_PUBLIC_ELIZA_API_URL=https://www.elizacloud.ai
+```
 
-**DO NOT** create API key input fields or configuration screens. Everything is pre-configured.
+## CSS Utilities
 
-## Styling
+Pre-built utility classes in `globals.css`:
 
-This template uses Tailwind CSS v4. Custom utility classes:
-
-- `.btn-eliza` - Primary orange button
+- `.btn-eliza` - Orange primary button
 - `.btn-eliza-outline` - Outlined button
 - `.card-eliza` - Dark card with border
-- `.input-eliza` - Text input field
-- `.prose-eliza` - Markdown content styling
+- `.input-eliza` - Styled input field
+- `.prose-eliza` - Markdown styling
 
-Brand colors:
-- `eliza-orange` - #FF5800 (primary)
-- `eliza-orange-hover` - #E64F00
-- `eliza-orange-light` - #FF7A33
+## Important Notes
 
-## Learn More
+1. **NEVER remove ElizaProvider from layout.tsx** - It provides auth and credits context
+2. **Pre-built pages exist** - Don't recreate `/auth/callback` or `/billing/success`
+3. **Use real SDK** - Never create mock/demo implementations
+4. **Add 'use client'** - Required for files using hooks or event handlers
+5. **Tailwind v4** - Use `@import "tailwindcss";` not v3 syntax
 
-- [Eliza Cloud Documentation](https://elizacloud.ai/docs)
-- [API Reference](https://elizacloud.ai/docs/api)
-- [Examples](https://github.com/elizaos)
+## License
+
+MIT

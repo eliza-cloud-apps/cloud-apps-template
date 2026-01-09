@@ -1,152 +1,360 @@
 'use client';
 
-import { CreditDisplay } from '@/components/eliza';
-import { Sparkles, ArrowRight, Zap, Shield, Globe } from 'lucide-react';
-
 /**
- * Eliza Cloud App - Welcome Page
+ * Eliza Cloud App - Example Chat Interface
  * 
- * A beautiful, minimal landing page for Eliza Cloud apps.
- * Replace this with your own content!
+ * This is a WORKING example showing:
+ * - Real authentication with useElizaAuth
+ * - Real credit balance with useAppCredits
+ * - Real AI chat with useChatStream
+ * 
+ * NO MOCKS. NO DEMOS. REAL SDK CALLS.
  */
+
+import { useState, useRef, useEffect } from 'react';
+import { useChatStream } from '@/hooks/use-eliza';
+import { 
+  useElizaAuth,
+  useAppCredits,
+  SignInButton, 
+  UserMenu, 
+  AppCreditDisplay,
+  AppLowBalanceWarning,
+  PurchaseCreditsButton,
+  ProtectedRoute,
+} from '@/components/eliza';
+import { Send, Loader2, Sparkles, MessageCircle, Bot, User, Coins } from 'lucide-react';
+
+type Message = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#09090b] overflow-hidden">
-      {/* Subtle gradient background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] via-transparent to-violet-500/[0.02]" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-gradient-radial from-orange-500/[0.08] to-transparent blur-3xl" />
-      </div>
-
-      {/* Header */}
-      <header className="relative z-10 border-b border-white/[0.06] backdrop-blur-sm">
-        <div className="mx-auto max-w-6xl flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <ElizaLogo className="h-7 text-white" />
-          </div>
-          <CreditDisplay className="text-xs" />
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-20">
-        <div className="max-w-3xl mx-auto text-center space-y-8 animate-fade-in">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] text-xs text-gray-400">
-            <Sparkles className="h-3.5 w-3.5 text-orange-400" />
-            Built on Eliza Cloud
-          </div>
-
-          {/* Main Headline */}
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
-            <span className="text-white">Build your</span>
-            <br />
-            <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-amber-500 bg-clip-text text-transparent">
-              dreams
-            </span>
-          </h1>
-
-          {/* Subheadline */}
-          <p className="text-lg sm:text-xl text-gray-400 max-w-xl mx-auto leading-relaxed">
-            Your AI-powered app starts here. Chat, generate images, 
-            connect with agents—all powered by Eliza Cloud.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <a 
-              href="https://elizacloud.ai/docs" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium transition-all hover:shadow-lg hover:shadow-orange-500/25 hover:scale-[1.02]"
-            >
-              Get Started
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </a>
-            <a 
-              href="https://elizacloud.ai/docs/api" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-white/10 text-gray-300 font-medium transition-all hover:bg-white/[0.03] hover:border-white/20"
-            >
-              View API Docs
-            </a>
-          </div>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="mt-24 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto animate-slide-up">
-          <FeatureCard 
-            icon={Zap}
-            title="AI Chat"
-            description="Streaming responses with GPT-4o and other models"
-          />
-          <FeatureCard 
-            icon={Shield}
-            title="Pre-configured"
-            description="SDK, hooks, and credits ready to use"
-          />
-          <FeatureCard 
-            icon={Globe}
-            title="Agents"
-            description="Connect with AI agents in the ecosystem"
-          />
-        </div>
+    <div className="min-h-screen flex flex-col bg-[#09090b]">
+      <Header />
+      <main className="flex-1 flex flex-col">
+        <ChatApp />
       </main>
+    </div>
+  );
+}
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/[0.06] py-6">
-        <div className="mx-auto max-w-6xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-          <p>
-            Edit <code className="px-1.5 py-0.5 rounded bg-white/[0.03] text-gray-400 font-mono text-xs">src/app/page.tsx</code> to get started
-          </p>
-          <a
-            href="https://elizacloud.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-orange-400 transition-colors"
-          >
-            elizacloud.ai
-          </a>
+// ============================================================================
+// Header with Auth & Credits
+// ============================================================================
+
+function Header() {
+  const { isAuthenticated, loading } = useElizaAuth();
+
+  return (
+    <header className="border-b border-white/[0.06] backdrop-blur-sm sticky top-0 z-50">
+      <div className="mx-auto max-w-4xl flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-eliza-orange to-orange-600 flex items-center justify-center">
+            <Bot className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="font-semibold text-white">Eliza Chat</h1>
+            <p className="text-xs text-gray-500">Powered by Eliza Cloud</p>
+          </div>
         </div>
-      </footer>
-    </div>
-  );
-}
 
-function FeatureCard({ 
-  icon: Icon, 
-  title, 
-  description 
-}: { 
-  icon: typeof Zap; 
-  title: string; 
-  description: string;
-}) {
-  return (
-    <div className="group p-5 rounded-2xl border border-white/[0.06] bg-white/[0.01] hover:bg-white/[0.02] hover:border-white/[0.1] transition-all">
-      <div className="h-9 w-9 rounded-lg bg-orange-500/10 flex items-center justify-center mb-4">
-        <Icon className="h-4.5 w-4.5 text-orange-400" />
+        <div className="flex items-center gap-4">
+          {loading ? (
+            <div className="h-8 w-20 rounded-lg bg-gray-800 animate-pulse" />
+          ) : isAuthenticated ? (
+            <>
+              <AppCreditDisplay showRefresh className="hidden sm:flex" />
+              <PurchaseCreditsButton amount={10} variant="outline" className="hidden sm:flex text-xs">
+                <Coins className="h-3.5 w-3.5" />
+                Top Up
+              </PurchaseCreditsButton>
+              <UserMenu avatarSize={36} />
+            </>
+          ) : (
+            <SignInButton size="sm" />
+          )}
+        </div>
       </div>
-      <h3 className="font-medium text-white mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 leading-relaxed">{description}</p>
+    </header>
+  );
+}
+
+// ============================================================================
+// Main Chat App - Protected
+// ============================================================================
+
+function ChatApp() {
+  const { isAuthenticated, loading } = useElizaAuth();
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-eliza-orange" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <WelcomePage />;
+  }
+
+  return (
+    <>
+      <AppLowBalanceWarning className="mx-4 mt-4 max-w-4xl self-center w-full" />
+      <ChatInterface />
+    </>
+  );
+}
+
+// ============================================================================
+// Welcome Page (Not Signed In)
+// ============================================================================
+
+function WelcomePage() {
+  return (
+    <div className="flex-1 flex items-center justify-center px-4">
+      <div className="max-w-md text-center space-y-8">
+        {/* Animated background glow */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-eliza-orange/20 rounded-full blur-3xl scale-150" />
+          <div className="relative h-24 w-24 mx-auto rounded-2xl bg-gradient-to-br from-eliza-orange to-orange-600 flex items-center justify-center shadow-2xl shadow-eliza-orange/20">
+            <MessageCircle className="h-12 w-12 text-white" />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h2 className="text-3xl font-bold text-white">
+            Chat with AI
+          </h2>
+          <p className="text-gray-400 text-lg leading-relaxed">
+            Sign in to start chatting with advanced AI.
+            Get instant responses powered by GPT-4o.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <SignInButton size="lg" className="w-full justify-center">
+            <Sparkles className="h-5 w-5" />
+            Sign in to Chat
+          </SignInButton>
+          <p className="text-sm text-gray-500">
+            New users get free credits to try it out
+          </p>
+        </div>
+
+        {/* Features */}
+        <div className="grid grid-cols-3 gap-4 pt-8 border-t border-gray-800">
+          <Feature icon="⚡" label="Fast" />
+          <Feature icon="🔒" label="Private" />
+          <Feature icon="✨" label="Smart" />
+        </div>
+      </div>
     </div>
   );
 }
 
-function ElizaLogo({ className = '' }: { className?: string }) {
+function Feature({ icon, label }: { icon: string; label: string }) {
   return (
-    <svg 
-      viewBox="0 0 180 70" 
-      fill="currentColor" 
-      className={className}
-      aria-label="Eliza Cloud"
-    >
-      <path d="M43.3,43.7c0,3-1.1,5.4-3.2,7.5-2.2,2.1-4.7,3.1-7.8,3.1s-5.7-1-7.8-3.1c-2.2-2.1-3.2-4.6-3.2-7.5v-17.6c0-2.9,1.1-5.3,3.2-7.4,2.2-2.1,4.8-3.1,7.8-3.1s4.2.6,5.9,1.7c3.5,2.2,5,5.3,5,7.8s-.6,1.6-1.6,1.6h-3.2c-1,0-1.6-.5-1.7-1.6-.3-1.5-1.9-3.4-4.4-3.4s-4.4,1.9-4.4,4.1v18.2c0,2.2,2,4.1,4.4,4.1s4.7-1.7,4.7-4.5.7-1.6,1.6-1.6h3.1c.9,0,1.6.7,1.6,1.6h0ZM52.9,16.2h3.2c.9,0,1.6.7,1.6,1.6v29.8h13.7c.9,0,1.6.7,1.6,1.6v3.1c0,.9-.7,1.6-1.6,1.6h-18.5c-.9,0-1.6-.7-1.6-1.6V17.8c0-.9.7-1.6,1.6-1.6ZM101.1,26.2v17.7c0,2.9-1.1,5.4-3.2,7.5-2.1,2-4.7,3.1-7.9,3.1s-5.8-1-8-3.1-3.2-4.6-3.2-7.5v-17.6c0-2.9,1.1-5.4,3.2-7.4,2.2-2.1,4.8-3.1,8-3.1s5.8,1,7.9,3.1c2.2,2,3.2,4.5,3.2,7.4h0ZM94.7,44.1v-18.3c0-2.2-2.2-4.1-4.7-4.1s-4.7,1.9-4.7,4.1v18.2c0,2.2,2.2,4.2,4.7,4.2s4.7-1.9,4.7-4.1ZM130.2,17.8v26.1c0,2.9-1.1,5.4-3.2,7.5-2.1,2-4.7,3.1-7.9,3.1s-5.8-1-8-3.1-3.2-4.6-3.2-7.5v-26c0-.9.7-1.6,1.6-1.6h3.2c.9,0,1.6.7,1.6,1.6v26.3c0,2.2,2.2,4.2,4.8,4.2s4.7-1.9,4.7-4.1v-26.4c0-.9.7-1.6,1.6-1.6h3.2c.9,0,1.6.7,1.6,1.6h0ZM148.2,53.8h-9.1c-.9,0-1.6-.7-1.6-1.6V17.8c0-.9.7-1.6,1.6-1.6h9.1c2.9,0,5.4,1,7.4,3.1,2,2,3.1,4.5,3.1,7.4v16.7c0,2.9-1,5.4-3.1,7.4-2,2-4.5,3.1-7.4,3.1h0ZM152.1,43.6v-17.2c0-2.2-1.8-4-4-4h-4.1v25.1h4.1c2.2,0,4-1.7,4-3.9Z"/>
-      <polygon points="180 53.7 180 70 163.7 70 163.7 67 177 67 177 53.7 180 53.7"/>
-      <polygon points="16.3 67 16.3 70 0 70 0 53.7 3 53.7 3 67 16.3 67"/>
-      <polygon points="16.3 0 16.3 3 3 3 3 16.3 0 16.3 0 0 16.3 0"/>
-      <polygon points="180 0 180 16.3 177 16.3 177 3 163.7 3 163.7 0 180 0"/>
-    </svg>
+    <div className="text-center">
+      <span className="text-2xl">{icon}</span>
+      <p className="text-xs text-gray-500 mt-1">{label}</p>
+    </div>
+  );
+}
+
+// ============================================================================
+// Chat Interface - REAL AI Integration
+// ============================================================================
+
+function ChatInterface() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const { stream, loading } = useChatStream();
+  const { balance, hasLowBalance } = useAppCredits();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+
+    // Check credits
+    if (hasLowBalance && balance !== null && balance < 1) {
+      alert('Please purchase more credits to continue chatting.');
+      return;
+    }
+
+    const userMessage: Message = { role: 'user', content: input.trim() };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setInput('');
+
+    // Add empty assistant message for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      // REAL API CALL - using useChatStream hook
+      for await (const chunk of stream(newMessages)) {
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) {
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1].content += delta;
+            return updated;
+          });
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to send message';
+      
+      // Handle insufficient credits error
+      if (errorMsg.includes('INSUFFICIENT_CREDITS')) {
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].content = "⚠️ You're out of credits. Please purchase more to continue chatting.";
+          return updated;
+        });
+      } else {
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1].content = `Error: ${errorMsg}`;
+          return updated;
+        });
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <EmptyState onPrompt={(prompt) => {
+            setInput(prompt);
+          }} />
+        ) : (
+          messages.map((msg, i) => (
+            <MessageBubble key={i} message={msg} isLoading={loading && i === messages.length - 1 && msg.role === 'assistant' && !msg.content} />
+          ))
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-gray-800 p-4 bg-[#09090b]/80 backdrop-blur-sm">
+        <div className="flex gap-3 items-end">
+          <div className="flex-1 relative">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message..."
+              rows={1}
+              className="w-full resize-none rounded-xl border border-gray-700 bg-gray-800/50 px-4 py-3 pr-12 text-white placeholder:text-gray-500 focus:border-eliza-orange focus:outline-none focus:ring-1 focus:ring-eliza-orange"
+              style={{ minHeight: '48px', maxHeight: '120px' }}
+              disabled={loading}
+            />
+          </div>
+          <button
+            onClick={handleSend}
+            disabled={loading || !input.trim()}
+            className="h-12 w-12 rounded-xl bg-eliza-orange text-white flex items-center justify-center hover:bg-eliza-orange-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2 text-center">
+          Powered by Eliza Cloud • Messages use your credits
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// UI Components
+// ============================================================================
+
+function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
+  const prompts = [
+    "Explain quantum computing simply",
+    "Write a short poem about code",
+    "What's the meaning of life?",
+    "Help me brainstorm app ideas",
+  ];
+
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center px-4 py-12">
+      <div className="h-16 w-16 rounded-2xl bg-gray-800 flex items-center justify-center mb-6">
+        <Sparkles className="h-8 w-8 text-eliza-orange" />
+      </div>
+      <h3 className="text-xl font-semibold text-white mb-2">Start a conversation</h3>
+      <p className="text-gray-400 mb-8 max-w-md">
+        Ask anything! I can help with questions, writing, coding, and more.
+      </p>
+      <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+        {prompts.map((prompt) => (
+          <button
+            key={prompt}
+            onClick={() => onPrompt(prompt)}
+            className="p-3 rounded-xl border border-gray-800 bg-gray-900/50 text-sm text-gray-300 hover:bg-gray-800 hover:border-gray-700 transition-colors text-left"
+          >
+            {prompt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MessageBubble({ message, isLoading }: { message: Message; isLoading?: boolean }) {
+  const isUser = message.role === 'user';
+
+  return (
+    <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      {!isUser && (
+        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-eliza-orange to-orange-600 flex items-center justify-center flex-shrink-0">
+          <Bot className="h-4 w-4 text-white" />
+        </div>
+      )}
+      <div
+        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+          isUser
+            ? 'bg-eliza-orange text-white rounded-br-md'
+            : 'bg-gray-800 text-gray-100 rounded-bl-md'
+        }`}
+      >
+        {isLoading ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-gray-400">Thinking...</span>
+          </div>
+        ) : (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        )}
+      </div>
+      {isUser && (
+        <div className="h-8 w-8 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+          <User className="h-4 w-4 text-gray-300" />
+        </div>
+      )}
+    </div>
   );
 }

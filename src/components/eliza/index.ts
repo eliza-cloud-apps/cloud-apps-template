@@ -50,6 +50,13 @@ export {
 export { useElizaAuth } from '@/hooks/use-eliza-auth';
 export { useAppCredits } from '@/hooks/use-eliza-credits';
 
+// Character Chat Hooks
+export {
+  useAppCharacters,
+  useCharacterChat,
+  useCharacterRooms,
+} from '@/hooks/use-eliza';
+
 // ============================================================================
 // Re-export Auth Utilities
 // ============================================================================
@@ -62,3 +69,9 @@ export { isAppAuthAvailable } from '@/lib/eliza-auth';
 
 export type { ElizaUser, SignInOptions } from '@/lib/eliza-auth';
 export type { AppCreditBalance, PurchaseParams } from '@/lib/eliza-credits';
+export type { 
+  AppCharacter, 
+  Room, 
+  StreamingMessage, 
+  StreamChunkData,
+} from '@/lib/eliza';

@@ -9,7 +9,18 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import type { ChatMessage, ChatResponse, StreamChunk, ImageResult, Agent, AgentChatResponse, UploadResult } from '@/lib/eliza';
+import type { 
+  ChatMessage, 
+  ChatResponse, 
+  StreamChunk, 
+  ImageResult, 
+  Agent, 
+  AgentChatResponse, 
+  UploadResult,
+  AppCharacter,
+  Room,
+  StreamingMessage,
+} from '@/lib/eliza';
 
 // ============================================================================
 // Chat Hooks
@@ -519,4 +530,265 @@ export function usePageTracking() {
     };
     track();
   }, [pathname]);
+}
+
+// ============================================================================
+// App Characters Hooks - Real Character Chat with Rooms & Streaming
+// ============================================================================
+
+/**
+ * Hook for getting characters linked to this app.
+ * Auto-fetches on mount.
+ * 
+ * @example
+ * const { characters, loading, error } = useAppCharacters();
+ * characters.map(char => <CharacterCard key={char.id} character={char} />);
+ */
+export function useAppCharacters() {
+  const [characters, setCharacters] = useState<AppCharacter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { getAppCharacters } = await import('@/lib/eliza');
+      const result = await getAppCharacters();
+      setCharacters(result);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load characters';
+      setError(msg);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { characters, loading, error, refresh };
+}
+
+/**
+ * Hook for character chat with real rooms and streaming.
+ * Handles room creation, message history, and streaming responses.
+ * 
+ * @example
+ * const { 
+ *   messages, 
+ *   send, 
+ *   sendStream, 
+ *   loading, 
+ *   room, 
+ *   createRoom 
+ * } = useCharacterChat('character-id');
+ * 
+ * // Send a message (waits for full response)
+ * await send('Hello!');
+ * 
+ * // Or stream the response
+ * for await (const chunk of sendStream('Tell me a story')) {
+ *   console.log(chunk);
+ * }
+ */
+export function useCharacterChat(characterId?: string) {
+  const [room, setRoom] = useState<Room | null>(null);
+  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; isThinking?: boolean }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [roomLoading, setRoomLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Create a new room with a character
+  const createRoom = useCallback(async (charId?: string) => {
+    const targetCharId = charId || characterId;
+    if (!targetCharId) {
+      setError('No character ID provided');
+      return null;
+    }
+
+    setRoomLoading(true);
+    setError(null);
+    try {
+      const { createCharacterRoom } = await import('@/lib/eliza');
+      const newRoom = await createCharacterRoom(targetCharId);
+      setRoom(newRoom);
+      setMessages([]); // Clear messages for new room
+      return newRoom;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to create room';
+      setError(msg);
+      return null;
+    } finally {
+      setRoomLoading(false);
+    }
+  }, [characterId]);
+
+  // Auto-create room if characterId is provided and no room exists
+  useEffect(() => {
+    if (characterId && !room && !roomLoading) {
+      createRoom(characterId);
+    }
+  }, [characterId, room, roomLoading, createRoom]);
+
+  // Send a message and get full response
+  const send = useCallback(async (message: string, options?: {
+    webSearchEnabled?: boolean;
+    createImageEnabled?: boolean;
+  }): Promise<string | null> => {
+    if (!room) {
+      setError('No active room - call createRoom first');
+      return null;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', content: message }]);
+    
+    // Add thinking indicator
+    setMessages(prev => [...prev, { role: 'assistant', content: '', isThinking: true }]);
+    
+    try {
+      const { sendCharacterMessage } = await import('@/lib/eliza');
+      let currentText = '';
+      
+      const result = await sendCharacterMessage(room.id, message, {
+        ...options,
+        onChunk: (chunk) => {
+          currentText += chunk;
+          // Update the last message with accumulated text
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: currentText };
+            return updated;
+          });
+        },
+        onThinking: () => {
+          // Keep showing thinking state
+        },
+      });
+      
+      // Final update with complete text
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', content: result.text };
+        return updated;
+      });
+      
+      return result.text;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Chat failed';
+      setError(msg);
+      // Remove the assistant message on error
+      setMessages(prev => prev.slice(0, -1));
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [room]);
+
+  // Send a message with streaming (returns async generator)
+  const sendStream = useCallback(async function* (message: string, options?: {
+    webSearchEnabled?: boolean;
+    createImageEnabled?: boolean;
+  }) {
+    if (!room) {
+      setError('No active room - call createRoom first');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', content: message }]);
+    
+    // Add empty assistant message for streaming
+    setMessages(prev => [...prev, { role: 'assistant', content: '', isThinking: true }]);
+    
+    try {
+      const { sendCharacterMessageStream } = await import('@/lib/eliza');
+      let currentText = '';
+      
+      for await (const event of sendCharacterMessageStream(room.id, message, options)) {
+        if (event.type === 'chunk') {
+          currentText += event.text;
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: currentText };
+            return updated;
+          });
+          yield event.text;
+        } else if (event.type === 'error') {
+          setError(event.error);
+          break;
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Chat failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [room]);
+
+  // Reset the conversation
+  const reset = useCallback(() => {
+    setMessages([]);
+    setRoom(null);
+    setError(null);
+  }, []);
+
+  return {
+    room,
+    messages,
+    loading,
+    roomLoading,
+    error,
+    createRoom,
+    send,
+    sendStream,
+    reset,
+  };
+}
+
+/**
+ * Hook for getting existing chat rooms.
+ * 
+ * @example
+ * const { rooms, loading, refresh } = useCharacterRooms();
+ * rooms.map(room => <RoomCard key={room.id} room={room} />);
+ */
+export function useCharacterRooms() {
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { getCharacterRooms } = await import('@/lib/eliza');
+      const result = await getCharacterRooms();
+      setRooms(result);
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load rooms';
+      setError(msg);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { rooms, loading, error, refresh };
 }

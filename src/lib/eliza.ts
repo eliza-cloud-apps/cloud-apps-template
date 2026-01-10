@@ -83,6 +83,42 @@ export interface AgentChatResponse {
   agentId: string;
 }
 
+export interface AppCharacter {
+  id: string;
+  name: string;
+  username?: string | null;
+  avatar_url?: string | null;
+  bio?: string | string[];
+  is_public?: boolean;
+}
+
+export interface Room {
+  id: string;
+  characterId: string;
+  characterName?: string;
+  characterAvatar?: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+}
+
+export interface StreamingMessage {
+  id: string;
+  entityId: string;
+  content: {
+    text: string;
+    thought?: string;
+  };
+  createdAt: number;
+  isAgent: boolean;
+  type: 'user' | 'agent' | 'thinking' | 'error';
+}
+
+export interface StreamChunkData {
+  messageId: string;
+  chunk: string;
+  timestamp: number;
+}
+
 export interface UploadResult {
   url: string;
   filename: string;
@@ -487,6 +523,280 @@ export async function getBalance(): Promise<BalanceResult> {
 }
 
 // ============================================================================
+// App Characters - Real Character Chat with Rooms & Streaming
+// ============================================================================
+
+/**
+ * Get characters linked to this app.
+ * Returns the AI characters that have been configured for this app.
+ * 
+ * @example
+ * const characters = await getAppCharacters();
+ * console.log(characters[0].name); // "Assistant"
+ */
+export async function getAppCharacters(): Promise<AppCharacter[]> {
+  if (!appId) {
+    console.warn('No app ID configured - cannot fetch app characters');
+    return [];
+  }
+  
+  try {
+    const result = await elizaFetch<{ success: boolean; characters: AppCharacter[] }>(
+      `/api/v1/apps/${appId}/characters`,
+      {}
+    );
+    return result.characters || [];
+  } catch (error) {
+    console.error('Failed to fetch app characters:', error);
+    return [];
+  }
+}
+
+/**
+ * Create a new chat room with a character.
+ * Returns a room ID that can be used for subsequent messages.
+ * 
+ * @example
+ * const room = await createCharacterRoom('character-id');
+ * console.log(room.id); // Use this for sendCharacterMessage
+ */
+export async function createCharacterRoom(characterId: string): Promise<Room> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+  };
+  
+  if (appId) {
+    headers['X-App-Id'] = appId;
+  }
+  
+  const res = await fetch(`${apiBase}/api/eliza/rooms`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ characterId }),
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to create room (${res.status}): ${await res.text()}`);
+  }
+  
+  const data = await res.json();
+  return {
+    id: data.roomId || data.room?.id,
+    characterId,
+    characterName: data.characterName,
+    characterAvatar: data.characterAvatar,
+  };
+}
+
+/**
+ * Get existing rooms for the authenticated user.
+ * Returns rooms with last message preview.
+ * 
+ * @example
+ * const rooms = await getCharacterRooms();
+ * rooms.forEach(room => console.log(room.characterName, room.lastMessage));
+ */
+export async function getCharacterRooms(): Promise<Room[]> {
+  const headers: Record<string, string> = {
+    ...getAuthHeaders(),
+  };
+  
+  if (appId) {
+    headers['X-App-Id'] = appId;
+  }
+  
+  const res = await fetch(`${apiBase}/api/eliza/rooms`, {
+    headers,
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Failed to get rooms (${res.status}): ${await res.text()}`);
+  }
+  
+  const data = await res.json();
+  return (data.rooms || []).map((room: {
+    id: string;
+    agentId: string;
+    agentName?: string;
+    agentAvatar?: string;
+    lastMessage?: string;
+    lastMessageAt?: string;
+  }) => ({
+    id: room.id,
+    characterId: room.agentId,
+    characterName: room.agentName,
+    characterAvatar: room.agentAvatar,
+    lastMessage: room.lastMessage,
+    lastMessageAt: room.lastMessageAt,
+  }));
+}
+
+/**
+ * Send a message to a character and get streaming response.
+ * Returns an async generator that yields chunks as they arrive.
+ * 
+ * @example
+ * // Create or get a room first
+ * const room = await createCharacterRoom('character-id');
+ * 
+ * // Stream the response
+ * let fullText = '';
+ * for await (const chunk of sendCharacterMessageStream(room.id, 'Hello!')) {
+ *   if (chunk.type === 'chunk') {
+ *     fullText += chunk.text;
+ *     console.log(chunk.text); // Print each chunk as it arrives
+ *   } else if (chunk.type === 'message') {
+ *     console.log('Complete message:', chunk.message);
+ *   }
+ * }
+ */
+export async function* sendCharacterMessageStream(
+  roomId: string,
+  message: string,
+  options?: {
+    webSearchEnabled?: boolean;
+    createImageEnabled?: boolean;
+    imageModel?: string;
+  }
+): AsyncGenerator<
+  | { type: 'chunk'; text: string; messageId: string }
+  | { type: 'message'; message: StreamingMessage }
+  | { type: 'thinking'; message: StreamingMessage }
+  | { type: 'error'; error: string }
+  | { type: 'done' }
+> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...getAuthHeaders(),
+  };
+  
+  if (appId) {
+    headers['X-App-Id'] = appId;
+  }
+  
+  const res = await fetch(`${apiBase}/api/eliza/rooms/${roomId}/messages/stream`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      text: message,
+      appId,
+      webSearchEnabled: options?.webSearchEnabled ?? true,
+      createImageEnabled: options?.createImageEnabled ?? false,
+      ...(options?.imageModel && { imageModel: options.imageModel }),
+    }),
+  });
+  
+  if (!res.ok) {
+    const errorText = await res.text();
+    yield { type: 'error', error: `Failed to send message (${res.status}): ${errorText}` };
+    return;
+  }
+  
+  const reader = res.body?.getReader();
+  if (!reader) {
+    yield { type: 'error', error: 'No response body' };
+    return;
+  }
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const messages = buffer.split('\n\n');
+    buffer = messages.pop() || '';
+    
+    for (const message of messages) {
+      if (!message.trim()) continue;
+      
+      const lines = message.split('\n');
+      let eventType = 'message';
+      let dataStr = '';
+      
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim();
+        } else if (line.startsWith('data: ')) {
+          dataStr += line.slice(6);
+        }
+      }
+      
+      if (!dataStr) continue;
+      
+      try {
+        const data = JSON.parse(dataStr);
+        
+        switch (eventType) {
+          case 'chunk':
+            yield { type: 'chunk', text: data.chunk, messageId: data.messageId };
+            break;
+          case 'message':
+            if (data.type === 'thinking') {
+              yield { type: 'thinking', message: data };
+            } else {
+              yield { type: 'message', message: data };
+            }
+            break;
+          case 'error':
+            yield { type: 'error', error: data.message || data.error || 'Unknown error' };
+            break;
+          case 'done':
+            yield { type: 'done' };
+            break;
+        }
+      } catch {
+        // Skip malformed data
+      }
+    }
+  }
+  
+  yield { type: 'done' };
+}
+
+/**
+ * Send a message to a character and get the full response.
+ * For real-time streaming, use sendCharacterMessageStream instead.
+ * 
+ * @example
+ * const room = await createCharacterRoom('character-id');
+ * const response = await sendCharacterMessage(room.id, 'Hello!');
+ * console.log(response.text);
+ */
+export async function sendCharacterMessage(
+  roomId: string,
+  message: string,
+  options?: {
+    webSearchEnabled?: boolean;
+    createImageEnabled?: boolean;
+    imageModel?: string;
+    onChunk?: (text: string) => void;
+    onThinking?: () => void;
+  }
+): Promise<{ text: string; roomId: string }> {
+  let fullText = '';
+  
+  for await (const event of sendCharacterMessageStream(roomId, message, options)) {
+    switch (event.type) {
+      case 'chunk':
+        fullText += event.text;
+        options?.onChunk?.(event.text);
+        break;
+      case 'thinking':
+        options?.onThinking?.();
+        break;
+      case 'error':
+        throw new Error(event.error);
+    }
+  }
+  
+  return { text: fullText, roomId };
+}
+
+// ============================================================================
 // Utility Exports
 // ============================================================================
 
@@ -499,6 +809,12 @@ export const eliza = {
   getAgent,
   chatWithAgent,
   chatWithAgentStream,
+  // App Characters (Real Chat Flow)
+  getAppCharacters,
+  createCharacterRoom,
+  getCharacterRooms,
+  sendCharacterMessage,
+  sendCharacterMessageStream,
   // Generation
   generateImage,
   generateVideo,

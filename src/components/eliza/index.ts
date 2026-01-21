@@ -73,5 +73,5 @@ export type {
   AppCharacter, 
   Room, 
   StreamingMessage, 
-  StreamChunkData,
+  StreamChunk,
 } from '@/lib/eliza';

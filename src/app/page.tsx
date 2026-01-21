@@ -1,32 +1,32 @@
-'use client';
+"use client";
 
 /**
  * Eliza Cloud App Template
- * 
+ *
  * A polished, production-ready template showcasing:
  * - Real authentication with useElizaAuth
  * - Real credit balance with useAppCredits
  * - Real AI chat with useChatStream
  */
 
-import { useState, useRef, useEffect } from 'react';
-import { useChatStream } from '@/hooks/use-eliza';
-import { 
+import { useState, useRef, useEffect } from "react";
+import { useChatStream } from "@/hooks/use-eliza";
+import {
   useElizaAuth,
   useAppCredits,
-  SignInButton, 
-  UserMenu, 
+  SignInButton,
+  UserMenu,
   AppCreditDisplay,
   AppLowBalanceWarning,
   PurchaseCreditsButton,
-} from '@/components/eliza';
-import { 
-  Send, 
-  Loader2, 
-  Zap, 
-  Bot, 
-  User, 
-  Coins, 
+} from "@/components/eliza";
+import {
+  Send,
+  Loader2,
+  Zap,
+  Bot,
+  User,
+  Coins,
   ArrowRight,
   Code2,
   Sparkles,
@@ -34,10 +34,10 @@ import {
   Cpu,
   Terminal,
   Layers,
-} from 'lucide-react';
+} from "lucide-react";
 
 type Message = {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 };
 
@@ -48,7 +48,7 @@ export default function Home() {
       <div className="orb orb-orange w-[600px] h-[600px] -top-[200px] -left-[200px] fixed opacity-40" />
       <div className="orb orb-purple w-[500px] h-[500px] top-[50%] -right-[200px] fixed opacity-30" />
       <div className="orb orb-cyan w-[400px] h-[400px] -bottom-[100px] left-[30%] fixed opacity-20" />
-      
+
       <Header />
       <main className="flex-1 flex flex-col relative z-10">
         <ChatApp />
@@ -74,18 +74,30 @@ function Header() {
             </div>
           </div>
           <div>
-            <h1 className="font-semibold text-white tracking-tight">Eliza Cloud</h1>
-            <p className="text-[11px] text-gray-500 tracking-wide uppercase">App Template</p>
+            <h1 className="font-semibold text-white tracking-tight">
+              Eliza Cloud
+            </h1>
+            <p className="text-[11px] text-gray-500 tracking-wide uppercase">
+              App Template
+            </p>
           </div>
         </div>
 
         <nav className="hidden md:flex items-center gap-1">
-          <a href="https://docs.elizacloud.ai" target="_blank" rel="noopener noreferrer" 
-             className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <a
+            href="https://docs.elizacloud.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+          >
             Docs
           </a>
-          <a href="https://elizacloud.ai/dashboard" target="_blank" rel="noopener noreferrer" 
-             className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <a
+            href="https://elizacloud.ai/dashboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+          >
             Dashboard
           </a>
         </nav>
@@ -96,7 +108,11 @@ function Header() {
           ) : isAuthenticated ? (
             <>
               <AppCreditDisplay showRefresh className="hidden sm:flex" />
-              <PurchaseCreditsButton amount={10} variant="outline" className="hidden sm:flex text-xs">
+              <PurchaseCreditsButton
+                amount={10}
+                variant="outline"
+                className="hidden sm:flex text-xs"
+              >
                 <Coins className="h-3.5 w-3.5" />
                 Get Credits
               </PurchaseCreditsButton>
@@ -159,7 +175,9 @@ function LandingPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-eliza-orange opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-eliza-orange"></span>
             </span>
-            <span className="text-sm text-gray-300">Powered by Eliza Cloud Infrastructure</span>
+            <span className="text-sm text-gray-300">
+              Powered by Eliza Cloud Infrastructure
+            </span>
           </div>
 
           {/* Headline */}
@@ -171,20 +189,24 @@ function LandingPage() {
 
           {/* Subheadline */}
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            This template demonstrates the complete Eliza Cloud SDK. 
-            Authentication, credits, and AI chat—all wired up and ready for production.
+            This template demonstrates the complete Eliza Cloud SDK.
+            Authentication, credits, and AI chat—all wired up and ready for
+            production.
           </p>
 
           {/* CTA */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <SignInButton size="lg" className="w-full sm:w-auto justify-center px-8">
+            <SignInButton
+              size="lg"
+              className="w-full sm:w-auto justify-center px-8"
+            >
               <Zap className="h-5 w-5" />
               Start Building
               <ArrowRight className="h-4 w-4 ml-1" />
             </SignInButton>
-            <a 
-              href="https://github.com/elizaos/eliza-cloud-template" 
-              target="_blank" 
+            <a
+              href="https://github.com/elizaos/eliza-cloud-template"
+              target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary w-full sm:w-auto flex items-center justify-center gap-2"
             >
@@ -204,39 +226,42 @@ function LandingPage() {
       <section className="py-20 px-6 border-t border-white/5">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-white mb-4">Everything You Need</h2>
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Everything You Need
+            </h2>
             <p className="text-gray-400 max-w-xl mx-auto">
-              Production-ready components and hooks for building AI-powered applications.
+              Production-ready components and hooks for building AI-powered
+              applications.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <FeatureCard 
+            <FeatureCard
               icon={<Shield className="h-6 w-6" />}
               title="Secure Auth"
               description="OAuth integration with Eliza Cloud. Users sign in once, access everywhere."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Coins className="h-6 w-6" />}
               title="Credit System"
               description="Built-in billing with usage-based pricing. Monetize your app from day one."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Cpu className="h-6 w-6" />}
               title="AI Integration"
               description="Stream responses from frontier models. Real-time, low-latency AI chat."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Layers className="h-6 w-6" />}
               title="Multi-Agent Ready"
               description="Deploy AI agents with unique personalities and capabilities."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Terminal className="h-6 w-6" />}
               title="Developer First"
               description="TypeScript SDK with React hooks. Build faster with great DX."
             />
-            <FeatureCard 
+            <FeatureCard
               icon={<Sparkles className="h-6 w-6" />}
               title="Production Ready"
               description="Battle-tested infrastructure. Scale from prototype to millions of users."
@@ -249,8 +274,12 @@ function LandingPage() {
       <section className="py-20 px-6 border-t border-white/5 bg-black/30">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white mb-4">Simple Integration</h2>
-            <p className="text-gray-400">Get started with just a few lines of code.</p>
+            <h2 className="text-3xl font-bold text-white mb-4">
+              Simple Integration
+            </h2>
+            <p className="text-gray-400">
+              Get started with just a few lines of code.
+            </p>
           </div>
 
           <div className="glass-card rounded-2xl overflow-hidden">
@@ -260,11 +289,13 @@ function LandingPage() {
                 <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
                 <div className="w-3 h-3 rounded-full bg-green-500/80" />
               </div>
-              <span className="text-xs text-gray-500 ml-2 font-mono">app.tsx</span>
+              <span className="text-xs text-gray-500 ml-2 font-mono">
+                app.tsx
+              </span>
             </div>
             <pre className="p-6 text-sm overflow-x-auto">
               <code className="font-mono text-gray-300">
-{`import { ElizaProvider, useElizaAuth } from '@/components/eliza';
+                {`import { ElizaProvider, useElizaAuth } from '@/components/eliza';
 import { useChatStream } from '@/hooks/use-eliza';
 
 function App() {
@@ -287,16 +318,28 @@ function App() {
             <span className="text-sm text-gray-500">Eliza Cloud Template</span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="https://elizacloud.ai" target="_blank" rel="noopener noreferrer" 
-               className="text-sm text-gray-500 hover:text-white transition-colors">
+            <a
+              href="https://elizacloud.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-gray-500 hover:text-white transition-colors"
+            >
               elizacloud.ai
             </a>
-            <a href="https://github.com/elizaos" target="_blank" rel="noopener noreferrer" 
-               className="text-sm text-gray-500 hover:text-white transition-colors">
+            <a
+              href="https://github.com/elizaos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-gray-500 hover:text-white transition-colors"
+            >
               GitHub
             </a>
-            <a href="https://discord.gg/eliza" target="_blank" rel="noopener noreferrer" 
-               className="text-sm text-gray-500 hover:text-white transition-colors">
+            <a
+              href="https://discord.gg/eliza"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-gray-500 hover:text-white transition-colors"
+            >
               Discord
             </a>
           </div>
@@ -306,13 +349,13 @@ function App() {
   );
 }
 
-function FeatureCard({ 
-  icon, 
-  title, 
-  description, 
-}: { 
-  icon: React.ReactNode; 
-  title: string; 
+function FeatureCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
   description: string;
 }) {
   return (
@@ -332,35 +375,35 @@ function FeatureCard({
 
 function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const { stream, loading } = useChatStream();
   const { balance, hasLowBalance } = useAppCredits();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
     if (hasLowBalance && balance !== null && balance < 1) {
-      alert('Please purchase more credits to continue.');
+      alert("Please purchase more credits to continue.");
       return;
     }
 
-    const userMessage: Message = { role: 'user', content: input.trim() };
+    const userMessage: Message = { role: "user", content: input.trim() };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setInput('');
+    setInput("");
 
-    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
       for await (const chunk of stream(newMessages)) {
         const delta = chunk.choices?.[0]?.delta?.content;
         if (delta) {
-          setMessages(prev => {
+          setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1].content += delta;
             return updated;
@@ -368,16 +411,18 @@ function ChatInterface() {
         }
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Something went wrong';
-      
-      if (errorMsg.includes('INSUFFICIENT_CREDITS')) {
-        setMessages(prev => {
+      const errorMsg =
+        error instanceof Error ? error.message : "Something went wrong";
+
+      if (errorMsg.includes("INSUFFICIENT_CREDITS")) {
+        setMessages((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1].content = "You've run out of credits. Please top up to continue.";
+          updated[updated.length - 1].content =
+            "You've run out of credits. Please top up to continue.";
           return updated;
         });
       } else {
-        setMessages(prev => {
+        setMessages((prev) => {
           const updated = [...prev];
           updated[updated.length - 1].content = `Error: ${errorMsg}`;
           return updated;
@@ -387,7 +432,7 @@ function ChatInterface() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -401,10 +446,15 @@ function ChatInterface() {
           <EmptyState onPrompt={(prompt) => setInput(prompt)} />
         ) : (
           messages.map((msg, i) => (
-            <MessageBubble 
-              key={i} 
-              message={msg} 
-              isLoading={loading && i === messages.length - 1 && msg.role === 'assistant' && !msg.content} 
+            <MessageBubble
+              key={i}
+              message={msg}
+              isLoading={
+                loading &&
+                i === messages.length - 1 &&
+                msg.role === "assistant" &&
+                !msg.content
+              }
             />
           ))
         )}
@@ -423,7 +473,7 @@ function ChatInterface() {
                 placeholder="Ask anything..."
                 rows={1}
                 className="w-full resize-none rounded-xl bg-transparent px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none"
-                style={{ minHeight: '48px', maxHeight: '120px' }}
+                style={{ minHeight: "48px", maxHeight: "120px" }}
                 disabled={loading}
               />
             </div>
@@ -455,7 +505,10 @@ function ChatInterface() {
 function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
   const prompts = [
     { text: "Explain quantum computing", icon: <Cpu className="h-4 w-4" /> },
-    { text: "Write a haiku about code", icon: <Sparkles className="h-4 w-4" /> },
+    {
+      text: "Write a haiku about code",
+      icon: <Sparkles className="h-4 w-4" />,
+    },
     { text: "Debug this JavaScript", icon: <Terminal className="h-4 w-4" /> },
     { text: "Brainstorm startup ideas", icon: <Zap className="h-4 w-4" /> },
   ];
@@ -468,12 +521,14 @@ function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
           <Bot className="h-10 w-10 text-white" />
         </div>
       </div>
-      
-      <h3 className="text-2xl font-semibold text-white mb-3">How can I help?</h3>
+
+      <h3 className="text-2xl font-semibold text-white mb-3">
+        How can I help?
+      </h3>
       <p className="text-gray-400 mb-10 max-w-md">
         I can assist with questions, coding, writing, analysis, and more.
       </p>
-      
+
       <div className="grid grid-cols-2 gap-3 w-full max-w-lg">
         {prompts.map((prompt, i) => (
           <button
@@ -496,12 +551,20 @@ function EmptyState({ onPrompt }: { onPrompt: (prompt: string) => void }) {
   );
 }
 
-function MessageBubble({ message, isLoading }: { message: Message; isLoading?: boolean }) {
-  const isUser = message.role === 'user';
+function MessageBubble({
+  message,
+  isLoading,
+}: {
+  message: Message;
+  isLoading?: boolean;
+}) {
+  const isUser = message.role === "user";
 
   return (
-    <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'} animate-fade-up`}>
-      <div className={`flex-shrink-0 ${isUser ? 'order-last' : ''}`}>
+    <div
+      className={`flex gap-4 ${isUser ? "flex-row-reverse" : "flex-row"} animate-fade-up`}
+    >
+      <div className={`flex-shrink-0 ${isUser ? "order-last" : ""}`}>
         {isUser ? (
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
             <User className="h-4 w-4 text-gray-300" />
@@ -512,25 +575,36 @@ function MessageBubble({ message, isLoading }: { message: Message; isLoading?: b
           </div>
         )}
       </div>
-      
-      <div className={`max-w-[80%] ${isUser ? 'text-right' : 'text-left'}`}>
+
+      <div className={`max-w-[80%] ${isUser ? "text-right" : "text-left"}`}>
         <div
           className={`inline-block rounded-2xl px-5 py-3 ${
             isUser
-              ? 'bg-gradient-to-br from-eliza-orange to-orange-600 text-white rounded-br-md'
-              : 'glass-card text-gray-100 rounded-bl-md'
+              ? "bg-gradient-to-br from-eliza-orange to-orange-600 text-white rounded-br-md"
+              : "glass-card text-gray-100 rounded-bl-md"
           }`}
         >
           {isLoading ? (
             <div className="flex items-center gap-2 py-1">
               <div className="flex gap-1">
-                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <span
+                  className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
               </div>
             </div>
           ) : (
-            <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+            <p className="whitespace-pre-wrap leading-relaxed">
+              {message.content}
+            </p>
           )}
         </div>
       </div>

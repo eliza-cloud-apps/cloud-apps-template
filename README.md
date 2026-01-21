@@ -29,18 +29,18 @@ Everything is pre-configured. Just import and use:
 ### AI Chat (Streaming)
 
 ```tsx
-'use client';
-import { useChatStream } from '@/hooks/use-eliza';
+"use client";
+import { useChatStream } from "@/hooks/use-eliza";
 
 function Chat() {
   const { stream, loading } = useChatStream();
-  const [response, setResponse] = useState('');
+  const [response, setResponse] = useState("");
 
   const handleSend = async (message: string) => {
-    setResponse('');
-    for await (const chunk of stream([{ role: 'user', content: message }])) {
+    setResponse("");
+    for await (const chunk of stream([{ role: "user", content: message }])) {
       const delta = chunk.choices?.[0]?.delta?.content;
-      if (delta) setResponse(prev => prev + delta);
+      if (delta) setResponse((prev) => prev + delta);
     }
   };
 }
@@ -49,11 +49,11 @@ function Chat() {
 ### Agent/Character Chat
 
 ```tsx
-'use client';
-import { useAgentChat } from '@/hooks/use-eliza';
+"use client";
+import { useAgentChat } from "@/hooks/use-eliza";
 
 function CharacterChat() {
-  const { agent, messages, send, loading } = useAgentChat('agent-id');
+  const { agent, messages, send, loading } = useAgentChat("agent-id");
 
   const handleSend = async (text: string) => {
     await send(text); // messages array updates automatically
@@ -86,11 +86,11 @@ const { user, isAuthenticated, signIn, signOut } = useElizaAuth();
 
 ```tsx
 'use client';
-import { 
-  useAppCredits, 
-  AppCreditDisplay, 
+import {
+  useAppCredits,
+  AppCreditDisplay,
   PurchaseCreditsButton,
-  AppLowBalanceWarning 
+  AppLowBalanceWarning
 } from '@/components/eliza';
 
 // Show balance
@@ -109,14 +109,14 @@ const { balance, hasLowBalance, purchase } = useAppCredits();
 ### Image Generation
 
 ```tsx
-'use client';
-import { useImageGeneration } from '@/hooks/use-eliza';
+"use client";
+import { useImageGeneration } from "@/hooks/use-eliza";
 
 function ImageGen() {
   const { generate, loading, result } = useImageGeneration();
 
   const handleGenerate = async () => {
-    await generate('A sunset over mountains');
+    await generate("A sunset over mountains");
     // result?.images?.[0]?.url contains the image
   };
 }

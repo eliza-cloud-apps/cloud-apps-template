@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
 /**
  * ElizaProvider - Main provider component for Eliza Cloud apps.
- * 
+ *
  * Wraps your app with:
  * - Analytics tracking (automatic page views)
  * - Credits context (balance management)
- * 
+ *
  * @example
  * // In layout.tsx:
  * import { ElizaProvider } from '@/components/eliza';
- * 
+ *
  * export default function RootLayout({ children }) {
  *   return (
  *     <html>
@@ -22,8 +22,15 @@
  * }
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { usePathname } from "next/navigation";
 
 // ============================================================================
 // Types
@@ -59,7 +66,7 @@ function ElizaAnalytics() {
   useEffect(() => {
     const track = async () => {
       try {
-        const { trackPageView } = await import('@/lib/eliza');
+        const { trackPageView } = await import("@/lib/eliza");
         trackPageView(pathname);
       } catch {
         // Silent fail - don't break app for analytics
@@ -105,23 +112,26 @@ export function ElizaProvider({
   const [balance, setBalance] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [creditsError, setCreditsError] = useState<string | null>(null);
-  
+
   // App state
   const [isReady, setIsReady] = useState(false);
-  const appId = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_ELIZA_APP_ID || null 
-    : null;
+  const appId =
+    typeof window !== "undefined"
+      ? process.env.NEXT_PUBLIC_ELIZA_APP_ID || null
+      : null;
 
   // Refresh credits
   const refreshCredits = useCallback(async () => {
     setCreditsLoading(true);
     setCreditsError(null);
     try {
-      const { getBalance } = await import('@/lib/eliza');
+      const { getBalance } = await import("@/lib/eliza");
       const result = await getBalance();
       setBalance(result.balance);
     } catch (e) {
-      setCreditsError(e instanceof Error ? e.message : 'Failed to fetch balance');
+      setCreditsError(
+        e instanceof Error ? e.message : "Failed to fetch balance",
+      );
     } finally {
       setCreditsLoading(false);
     }
@@ -175,7 +185,7 @@ export function useEliza() {
   if (!context) {
     // During SSR or if ElizaProvider is missing, return a safe default
     // instead of throwing to prevent build/render errors
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return {
         credits: {
           balance: null,
@@ -188,14 +198,14 @@ export function useEliza() {
         isReady: false,
       } as ElizaContextType;
     }
-    throw new Error('useEliza must be used within an ElizaProvider');
+    throw new Error("useEliza must be used within an ElizaProvider");
   }
   return context;
 }
 
 /**
  * Access credits balance and management.
- * 
+ *
  * @example
  * const { balance, hasLowBalance, refresh } = useElizaCredits();
  * if (hasLowBalance) showWarning();
@@ -211,13 +221,13 @@ export function useElizaCredits() {
 
 /**
  * Display credit balance with optional warning styling.
- * 
+ *
  * @example
  * <CreditDisplay showWarning />
  */
 export function CreditDisplay({
   showWarning = true,
-  className = '',
+  className = "",
 }: {
   showWarning?: boolean;
   className?: string;
@@ -226,7 +236,9 @@ export function CreditDisplay({
 
   if (loading) {
     return (
-      <span className={`inline-flex items-center gap-1.5 text-sm text-gray-400 ${className}`}>
+      <span
+        className={`inline-flex items-center gap-1.5 text-sm text-gray-400 ${className}`}
+      >
         <span className="h-2 w-2 animate-pulse rounded-full bg-gray-500" />
         Loading...
       </span>
@@ -238,15 +250,15 @@ export function CreditDisplay({
   return (
     <span
       className={`inline-flex items-center gap-1.5 text-sm ${
-        isLow ? 'text-amber-400' : 'text-gray-300'
+        isLow ? "text-amber-400" : "text-gray-300"
       } ${className}`}
     >
       <span
         className={`h-2 w-2 rounded-full ${
-          isLow ? 'bg-amber-400' : 'bg-emerald-400'
+          isLow ? "bg-amber-400" : "bg-emerald-400"
         }`}
       />
-      {balance !== null ? `${balance.toLocaleString()} credits` : '— credits'}
+      {balance !== null ? `${balance.toLocaleString()} credits` : "— credits"}
     </span>
   );
 }
@@ -254,13 +266,13 @@ export function CreditDisplay({
 /**
  * Low balance warning banner.
  * Only shows when balance is below threshold.
- * 
+ *
  * @example
  * <LowBalanceWarning />
  */
 export function LowBalanceWarning({
-  message = 'Your credit balance is low. Top up to continue using AI features.',
-  className = '',
+  message = "Your credit balance is low. Top up to continue using AI features.",
+  className = "",
 }: {
   message?: string;
   className?: string;

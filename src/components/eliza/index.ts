@@ -1,6 +1,6 @@
 /**
  * Eliza Cloud Components
- * 
+ *
  * Complete component library for Eliza Cloud apps.
  * Import from '@/components/eliza' in your app.
  */
@@ -16,7 +16,7 @@ export {
   // Legacy org-level credit display (for apps using org credits)
   CreditDisplay,
   LowBalanceWarning,
-} from './eliza-provider';
+} from "./eliza-provider";
 
 // ============================================================================
 // Authentication Components
@@ -28,7 +28,7 @@ export {
   UserMenu,
   ProtectedRoute,
   AuthStatus,
-} from './auth-components';
+} from "./auth-components";
 
 // ============================================================================
 // App Credit Components (User-specific credits)
@@ -41,37 +41,37 @@ export {
   PurchaseCreditsModal,
   CreditBalanceCard,
   UsageMeter,
-} from './credit-components';
+} from "./credit-components";
 
 // ============================================================================
 // Re-export Hooks
 // ============================================================================
 
-export { useElizaAuth } from '@/hooks/use-eliza-auth';
-export { useAppCredits } from '@/hooks/use-eliza-credits';
+export { useElizaAuth } from "@/hooks/use-eliza-auth";
+export { useAppCredits } from "@/hooks/use-eliza-credits";
 
 // Character Chat Hooks
 export {
   useAppCharacters,
   useCharacterChat,
   useCharacterRooms,
-} from '@/hooks/use-eliza';
+} from "@/hooks/use-eliza";
 
 // ============================================================================
 // Re-export Auth Utilities
 // ============================================================================
 
-export { isAppAuthAvailable } from '@/lib/eliza-auth';
+export { isAppAuthAvailable } from "@/lib/eliza-auth";
 
 // ============================================================================
 // Re-export Types
 // ============================================================================
 
-export type { ElizaUser, SignInOptions } from '@/lib/eliza-auth';
-export type { AppCreditBalance, PurchaseParams } from '@/lib/eliza-credits';
-export type { 
-  AppCharacter, 
-  Room, 
-  StreamingMessage, 
+export type { ElizaUser, SignInOptions } from "@/lib/eliza-auth";
+export type { AppCreditBalance, PurchaseParams } from "@/lib/eliza-credits";
+export type {
+  AppCharacter,
+  Room,
+  StreamingMessage,
   StreamChunk,
-} from '@/lib/eliza';
+} from "@/lib/eliza";
